@@ -1,0 +1,18 @@
+{
+  "name": "afazeres · やること",
+  "short_name": "afazeres",
+  "description": "Projetos, tarefas e foco de ramosxzz.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0d0a18",
+  "theme_color": "#0d0a18",
+  "lang": "pt-BR",
+  "icons": [
+    { "src": "/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+  ],
+  "shortcuts": [
+    { "name": "Tarefas", "url": "/tarefas" },
+    { "name": "Foco", "url": "/foco" },
+    { "name": "Projetos", "url": "/projetos" }
+  ]
+}

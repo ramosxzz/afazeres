@@ -1,0 +1,164 @@
+/* ═══════════════════════════ TEMAS ═══════════════════════════ */
+
+:root,
+:root[data-theme="yozakura"] {
+  /* 夜桜 — cerejeiras à noite */
+  color-scheme: dark;
+  --bg: #0d0a18;
+  --bg-2: #141026;
+  --surface: rgba(255, 255, 255, 0.035);
+  --surface-2: rgba(255, 255, 255, 0.06);
+  --surface-solid: #1a1530;
+  --elevated: #1f1a38;
+  --border: rgba(255, 255, 255, 0.08);
+  --border-strong: rgba(255, 255, 255, 0.16);
+  --text: #f5eefa;
+  --text-2: #c9c0dc;
+  --muted: #8c84a8;
+  --accent: #ff7eb6;
+  --accent-2: #9d8cff;
+  --accent-3: #ffd27f;
+  --accent-ink: #1a0b14;
+  --accent-soft: rgba(255, 126, 182, 0.14);
+  --danger: #ff5d7a;
+  --success: #5ee6a0;
+  --warning: #ffc861;
+  --glow-1: rgba(255, 126, 182, 0.22);
+  --glow-2: rgba(120, 100, 255, 0.2);
+  --glow-3: rgba(255, 210, 127, 0.08);
+  --petal-1: #ffc0da;
+  --petal-2: #ff8fc0;
+  --pattern: rgba(255, 255, 255, 0.025);
+  --shadow: 0 10px 40px -12px rgba(0, 0, 0, 0.7);
+  --heat-0: rgba(255, 255, 255, 0.05);
+  --heat-1: #5a2a4a;
+  --heat-2: #9a3a72;
+  --heat-3: #e0589a;
+  --heat-4: #ffa6cf;
+  --hanko: #e8394d;
+}
+
+:root[data-theme="neotokyo"] {
+  /* ネオ東京 — neon cyberpunk */
+  color-scheme: dark;
+  --bg: #05060d;
+  --bg-2: #0a0c1a;
+  --surface: rgba(0, 240, 255, 0.03);
+  --surface-2: rgba(0, 240, 255, 0.06);
+  --surface-solid: #0d1022;
+  --elevated: #121631;
+  --border: rgba(0, 240, 255, 0.12);
+  --border-strong: rgba(0, 240, 255, 0.28);
+  --text: #e8fbff;
+  --text-2: #b4d4e0;
+  --muted: #6d8a9c;
+  --accent: #00f0ff;
+  --accent-2: #ff2e97;
+  --accent-3: #fcee0a;
+  --accent-ink: #001417;
+  --accent-soft: rgba(0, 240, 255, 0.12);
+  --danger: #ff3864;
+  --success: #3dffb0;
+  --warning: #fcee0a;
+  --glow-1: rgba(0, 240, 255, 0.18);
+  --glow-2: rgba(255, 46, 151, 0.2);
+  --glow-3: rgba(252, 238, 10, 0.05);
+  --petal-1: #00f0ff;
+  --petal-2: #ff2e97;
+  --pattern: rgba(0, 240, 255, 0.035);
+  --shadow: 0 10px 40px -12px rgba(0, 240, 255, 0.15);
+  --heat-0: rgba(0, 240, 255, 0.05);
+  --heat-1: #073c4a;
+  --heat-2: #0a6d82;
+  --heat-3: #00b8cf;
+  --heat-4: #7ff7ff;
+  --hanko: #ff2e97;
+}
+
+:root[data-theme="washi"] {
+  /* 和紙 — papel artesanal, tinta sumi, selo vermelhão */
+  color-scheme: light;
+  --bg: #f3ecdf;
+  --bg-2: #ebe2d1;
+  --surface: rgba(255, 252, 244, 0.7);
+  --surface-2: rgba(120, 90, 50, 0.06);
+  --surface-solid: #fbf7ee;
+  --elevated: #fffdf7;
+  --border: rgba(60, 40, 20, 0.12);
+  --border-strong: rgba(60, 40, 20, 0.24);
+  --text: #231f1c;
+  --text-2: #4b433c;
+  --muted: #7d7166;
+  --accent: #c0392b;
+  --accent-2: #2f5d8a;
+  --accent-3: #b7892f;
+  --accent-ink: #fffaf2;
+  --accent-soft: rgba(192, 57, 43, 0.1);
+  --danger: #b3261e;
+  --success: #3e7d4f;
+  --warning: #a86f12;
+  --glow-1: rgba(192, 57, 43, 0.08);
+  --glow-2: rgba(47, 93, 138, 0.08);
+  --glow-3: rgba(183, 137, 47, 0.08);
+  --petal-1: #f2b8c6;
+  --petal-2: #e48aa3;
+  --pattern: rgba(60, 40, 20, 0.04);
+  --shadow: 0 10px 30px -14px rgba(60, 40, 20, 0.35);
+  --heat-0: rgba(60, 40, 20, 0.07);
+  --heat-1: #efc3b5;
+  --heat-2: #df8a74;
+  --heat-3: #c9503b;
+  --heat-4: #8e2418;
+  --hanko: #c0392b;
+}
+
+:root[data-theme="matcha"] {
+  /* 抹茶 — chá verde, bambu e ouro */
+  color-scheme: dark;
+  --bg: #0b120e;
+  --bg-2: #101a14;
+  --surface: rgba(200, 255, 200, 0.03);
+  --surface-2: rgba(200, 255, 200, 0.06);
+  --surface-solid: #142019;
+  --elevated: #18261e;
+  --border: rgba(200, 255, 200, 0.09);
+  --border-strong: rgba(200, 255, 200, 0.18);
+  --text: #eef6ea;
+  --text-2: #c4d6bd;
+  --muted: #86a08a;
+  --accent: #a6d98a;
+  --accent-2: #e8c07d;
+  --accent-3: #f2a6a6;
+  --accent-ink: #0d1a0c;
+  --accent-soft: rgba(166, 217, 138, 0.12);
+  --danger: #f47c7c;
+  --success: #a6d98a;
+  --warning: #e8c07d;
+  --glow-1: rgba(166, 217, 138, 0.14);
+  --glow-2: rgba(232, 192, 125, 0.1);
+  --glow-3: rgba(242, 166, 166, 0.05);
+  --petal-1: #cfe8b8;
+  --petal-2: #8fbf73;
+  --pattern: rgba(200, 255, 200, 0.03);
+  --shadow: 0 10px 40px -12px rgba(0, 0, 0, 0.7);
+  --heat-0: rgba(200, 255, 200, 0.05);
+  --heat-1: #24422b;
+  --heat-2: #3f7040;
+  --heat-3: #74a95c;
+  --heat-4: #c3eaa6;
+  --hanko: #d9534f;
+}
+
+:root {
+  --font: "Zen Kaku Gothic New", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-display: "Dela Gothic One", "Zen Kaku Gothic New", sans-serif;
+  --font-jp: "Shippori Mincho B1", "Noto Serif JP", serif;
+  --font-mono: "JetBrains Mono", ui-monospace, monospace;
+  --glass: color-mix(in oklab, var(--surface-solid) 82%, transparent);
+  --radius: 16px;
+  --radius-sm: 10px;
+  --radius-lg: 22px;
+  --sidebar: 252px;
+  --ease: cubic-bezier(0.22, 1, 0.36, 1);
+  --spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+}
