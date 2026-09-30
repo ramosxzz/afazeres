@@ -13,14 +13,13 @@
     "run_worker_first": ["/api/*"]
   },
 
-  // Banco D1. Crie com:  npx wrangler d1 create afazeres-db
-  // e cole o "database_id" retornado aqui embaixo.
+  // Banco D1 (afazeres-db, região ENAM — a mais próxima do Brasil).
   // As tabelas são criadas/migradas automaticamente pelo próprio Worker.
   "d1_databases": [
     {
       "binding": "DB",
       "database_name": "afazeres-db",
-      "database_id": "00000000-0000-0000-0000-000000000000"
+      "database_id": "268e406b-de74-4ea7-9d34-a44bf8fd2fde"
     }
   ]
 

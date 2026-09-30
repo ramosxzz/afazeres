@@ -7,6 +7,7 @@ import { useStore } from "../store";
 import { levelInfo } from "../lib/xp";
 import { todayKey, weekdayJp } from "../lib/dates";
 import { useTick } from "../lib/hooks";
+import { Kitsune } from "./Kitsune";
 
 const NAV = [
   { href: "/", label: "Dōjō", sub: "Início", kanji: "道場", icon: Home },
@@ -55,7 +56,7 @@ function LevelCard() {
   return (
     <Link href="/conquistas" className="level-card">
       <div className="level-avatar">
-        <span>{info.rank.kanji.slice(0, 1)}</span>
+        <Kitsune level={info.level} size={40} animate={false} />
         <b>{info.level}</b>
       </div>
       <div className="level-info">

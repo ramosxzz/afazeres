@@ -4,7 +4,8 @@ import { api } from "./api";
 import { levelInfo } from "./lib/xp";
 import { playFurin, playPop, playTaiko } from "./lib/sound";
 
-export type ThemeId = "yozakura" | "neotokyo" | "washi" | "matcha";
+export type ThemeId = "sumi" | "washi" | "ai" | "matcha";
+const THEME_IDS: ThemeId[] = ["sumi", "washi", "ai", "matcha"];
 
 export interface Prefs {
   theme: ThemeId;
@@ -14,16 +15,18 @@ export interface Prefs {
   short_break: number;
   long_break: number;
   display_name: string;
+  mascot_name: string;
 }
 
 const DEFAULT_PREFS: Prefs = {
-  theme: "yozakura",
-  petals: true,
+  theme: "sumi",
+  petals: false,
   sound: true,
   focus_minutes: 25,
   short_break: 5,
   long_break: 15,
   display_name: "ramosxzz",
+  mascot_name: "Kon",
 };
 
 export interface Toast {
@@ -36,7 +39,7 @@ export interface Toast {
 
 export type Celebration =
   | { kind: "project"; title: string; color: string }
-  | { kind: "level"; level: number; rank: string; rankKanji: string };
+  | { kind: "level"; level: number; rank: string; rankKanji: string; newTail: boolean };
 
 export type PomodoroMode = "focus" | "short" | "long";
 
@@ -96,11 +99,16 @@ interface State {
 function loadLocalPrefs(): Prefs {
   try {
     const raw = localStorage.getItem("afz_prefs");
-    if (raw) return { ...DEFAULT_PREFS, ...JSON.parse(raw) };
+    if (raw) return sanitizePrefs({ ...DEFAULT_PREFS, ...JSON.parse(raw) });
   } catch {
     /* noop */
   }
   return DEFAULT_PREFS;
+}
+
+/** Temas antigos (ou inválidos) caem no padrão. */
+function sanitizePrefs(p: Prefs): Prefs {
+  return THEME_IDS.includes(p.theme) ? p : { ...p, theme: DEFAULT_PREFS.theme };
 }
 
 function saveLocalPrefs(p: Prefs) {
@@ -120,7 +128,7 @@ function prefsFromSettings(settings: Record<string, string>, base: Prefs): Prefs
     (out as Record<string, unknown>)[key] =
       typeof def === "boolean" ? raw === "true" : typeof def === "number" ? Number(raw) || def : raw;
   }
-  return out;
+  return sanitizePrefs(out);
 }
 
 function durationFor(mode: PomodoroMode, prefs: Prefs) {
@@ -189,7 +197,13 @@ export const useStore = create<State>((set, get) => {
           const a = levelInfo(before.xp);
           const b = levelInfo(stats.xp);
           if (b.level > a.level) {
-            get().celebrate({ kind: "level", level: b.level, rank: b.rank.title, rankKanji: b.rank.kanji });
+            get().celebrate({
+              kind: "level",
+              level: b.level,
+              rank: b.rank.title,
+              rankKanji: b.rank.kanji,
+              newTail: b.rank.level !== a.rank.level,
+            });
             if (get().prefs.sound) playFurin();
           }
         }

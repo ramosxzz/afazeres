@@ -8,6 +8,8 @@ import { STATUS_META, TYPE_META } from "../lib/constants";
 import { formatMinutes, greeting, timeAgo, todayKey } from "../lib/dates";
 import { kotowazaOfDay } from "../lib/kotowaza";
 import { levelInfo } from "../lib/xp";
+import { mascotMood, stageForLevel } from "../lib/mascot";
+import { Kitsune } from "../components/Kitsune";
 import { QuickAdd } from "../components/QuickAdd";
 import { TaskRow } from "../components/TaskRow";
 import { Heatmap, HBars } from "../components/charts";
@@ -29,6 +31,8 @@ export function Dashboard() {
   const tasks = useStore((s) => s.tasks);
   const stats = useStore((s) => s.stats);
   const name = useStore((s) => s.prefs.display_name);
+  const mascotName = useStore((s) => s.prefs.mascot_name);
+  const focusing = useStore((s) => s.pomodoro.running && s.pomodoro.mode === "focus");
   const [activity, setActivity] = useState<Activity[]>([]);
   const g = greeting();
   const k = kotowazaOfDay();
@@ -65,6 +69,8 @@ export function Dashboard() {
 
   const info = levelInfo(stats?.xp ?? 0);
   const focusToday = stats?.focus_by_day.find((d) => d.day === today)?.minutes ?? 0;
+  const mascot = mascotMood({ stats, tasks, focusing, name: mascotName });
+  const stage = stageForLevel(info.level);
 
   return (
     <div className="page dashboard">
@@ -101,14 +107,18 @@ export function Dashboard() {
             <span className="pill">禅 {formatMinutes(focusToday)} de foco hoje</span>
             <span className="pill">済 {doneToday} feitas hoje</span>
           </div>
+          <p className="kotowaza-line" title={k.romaji}>
+            <span className="jp">{k.jp}</span>
+            <span className="muted">{k.pt}</span>
+          </p>
         </div>
-        <figure className="kotowaza" title={k.romaji}>
-          <blockquote className="kotowaza-jp">{k.jp}</blockquote>
-          <figcaption>
-            <span className="kotowaza-romaji">{k.romaji}</span>
-            <span>{k.pt}</span>
-          </figcaption>
-        </figure>
+        <Link href="/conquistas" className="mascot-card" title={`${mascotName} · ${stage.title}`}>
+          <p className="mascot-speech">{mascot.line}</p>
+          <Kitsune level={info.level} mood={mascot.mood} size={120} />
+          <span className="mascot-name">
+            {mascotName} <span className="muted">· {stage.kanji}</span>
+          </span>
+        </Link>
       </section>
 
       <section className="stat-grid">

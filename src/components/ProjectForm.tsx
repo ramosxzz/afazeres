@@ -14,7 +14,7 @@ const EMPTY: ProjectInput = {
   type: "fullstack",
   priority: "medium",
   client: "",
-  color: "#ff7eb6",
+  color: "#8b95a5",
   icon: "桜",
   stack: [],
   repo_url: "",

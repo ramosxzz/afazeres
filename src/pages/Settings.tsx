@@ -16,6 +16,7 @@ export function Settings() {
   const setAuth = useStore((s) => s.setAuth);
   const file = useRef<HTMLInputElement>(null);
   const [name, setName] = useState(prefs.display_name);
+  const [mascotName, setMascotName] = useState(prefs.mascot_name);
 
   const exportData = async () => {
     const data = await api<BackupFile>("/export");
@@ -58,6 +59,15 @@ export function Settings() {
             <span className="field-label">Nome de exibição</span>
             <input value={name} onChange={(e) => setName(e.target.value)} onBlur={() => name.trim() && setPrefs({ display_name: name.trim() })} />
           </label>
+          <label className="field grow">
+            <span className="field-label">Nome da kitsune 🦊</span>
+            <input
+              value={mascotName}
+              maxLength={24}
+              onChange={(e) => setMascotName(e.target.value)}
+              onBlur={() => mascotName.trim() && setPrefs({ mascot_name: mascotName.trim() })}
+            />
+          </label>
         </div>
       </section>
 
@@ -68,12 +78,10 @@ export function Settings() {
         <div className="theme-grid">
           {(Object.keys(THEMES) as ThemeId[]).map((t) => (
             <button key={t} className={`theme-card ${prefs.theme === t ? "active" : ""}`} onClick={() => setPrefs({ theme: t })}>
-              <div className="theme-preview" style={{ background: THEMES[t].swatch[0] }}>
-                <span style={{ color: THEMES[t].swatch[1] }}>{THEMES[t].kanji}</span>
+              <div className="theme-preview" style={{ background: THEMES[t].bg }}>
+                <span style={{ color: THEMES[t].fg }}>{THEMES[t].kanji}</span>
                 <div className="theme-dots">
-                  {THEMES[t].swatch.slice(1).map((c) => (
-                    <i key={c} style={{ background: c }} />
-                  ))}
+                  <i style={{ background: THEMES[t].accent }} />
                 </div>
               </div>
               <strong>{THEMES[t].name}</strong>
@@ -87,7 +95,7 @@ export function Settings() {
             <span className="switch-ui" />
             <span>
               <b>Pétalas caindo</b>
-              <small>Animação de fundo (respeita "reduzir movimento" do sistema)</small>
+              <small>Animação discreta de fundo (respeita "reduzir movimento" do sistema)</small>
             </span>
           </label>
           <label className="switch">

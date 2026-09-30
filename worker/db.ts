@@ -14,7 +14,7 @@ const MIGRATIONS: { id: number; name: string; statements: string[] }[] = [
         type TEXT NOT NULL DEFAULT 'fullstack',
         priority TEXT NOT NULL DEFAULT 'medium',
         client TEXT NOT NULL DEFAULT '',
-        color TEXT NOT NULL DEFAULT '#ff7eb6',
+        color TEXT NOT NULL DEFAULT '#8b95a5',
         icon TEXT NOT NULL DEFAULT '桜',
         stack TEXT NOT NULL DEFAULT '[]',
         repo_url TEXT NOT NULL DEFAULT '',

@@ -336,9 +336,11 @@ export function ProjectCard({ project: p, overlay, showStatus }: { project: Proj
             {p.client && ` · ${p.client}`}
           </span>
         </div>
-        <span className="pc-priority" title={`Prioridade ${PRIORITY_META[p.priority].label}`} style={{ color: PRIORITY_META[p.priority].color }}>
-          {PRIORITY_META[p.priority].kanji}
-        </span>
+        {p.status !== "done" && (
+          <span className="pc-priority" title={`Prioridade ${PRIORITY_META[p.priority].label}`} style={{ color: PRIORITY_META[p.priority].color }}>
+            {PRIORITY_META[p.priority].kanji}
+          </span>
+        )}
       </header>
       {p.description && <p className="pc-desc">{p.description}</p>}
       {p.stack.length > 0 && (

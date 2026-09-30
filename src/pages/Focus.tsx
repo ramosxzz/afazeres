@@ -77,29 +77,18 @@ export function Focus() {
 
           <div className="timer-wrap">
             <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} className="timer-svg" aria-hidden="true">
-              <defs>
-                <linearGradient id="timer-grad" x1="0" y1="0" x2="1" y2="1">
-                  <stop offset="0%" stopColor="var(--accent)" />
-                  <stop offset="100%" stopColor="var(--accent-2)" />
-                </linearGradient>
-                <filter id="brush">
-                  <feTurbulence type="fractalNoise" baseFrequency="0.035" numOctaves="2" seed="7" />
-                  <feDisplacementMap in="SourceGraphic" scale="6" />
-                </filter>
-              </defs>
-              <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="var(--surface-2)" strokeWidth={14} />
+              <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="var(--border)" strokeWidth={2} />
               <circle
                 cx={size / 2}
                 cy={size / 2}
                 r={r}
                 fill="none"
-                stroke="url(#timer-grad)"
-                strokeWidth={16}
+                stroke="var(--accent)"
+                strokeWidth={3}
                 strokeLinecap="round"
                 strokeDasharray={c}
                 strokeDashoffset={c * (1 - pct)}
                 transform={`rotate(-90 ${size / 2} ${size / 2})`}
-                filter="url(#brush)"
                 className="timer-progress"
               />
             </svg>
@@ -113,7 +102,6 @@ export function Focus() {
           <div className="cycles" title="Ciclos de foco (a cada 4, pausa longa)">
             {[0, 1, 2, 3].map((i) => (
               <span key={i} className={i < p.cycles % 4 || (p.cycles > 0 && p.cycles % 4 === 0 && p.mode === "long") ? "on" : ""}>
-                🌸
               </span>
             ))}
           </div>
@@ -180,12 +168,12 @@ export function Focus() {
               <span className="stat-value">{formatMinutes(todayMin)}</span>
               <span className="stat-label">hoje</span>
             </div>
-            <div className="stat-tile" style={{ "--c": "var(--accent-2)" } as React.CSSProperties}>
+            <div className="stat-tile" style={{ "--c": "var(--text-2)" } as React.CSSProperties}>
               <span className="stat-kanji">週</span>
               <span className="stat-value">{formatMinutes(weekMin)}</span>
               <span className="stat-label">últimos 7 dias</span>
             </div>
-            <div className="stat-tile" style={{ "--c": "var(--accent-3)" } as React.CSSProperties}>
+            <div className="stat-tile" style={{ "--c": "var(--muted)" } as React.CSSProperties}>
               <span className="stat-kanji">累計</span>
               <span className="stat-value">{Math.round((stats?.totals.focus_minutes ?? 0) / 60)}h</span>
               <span className="stat-label">{stats?.totals.focus_sessions ?? 0} sessões</span>

@@ -168,13 +168,6 @@ export function App() {
 
   return (
     <>
-      <div className="bg-art" aria-hidden="true">
-        <div className="bg-glow g1" />
-        <div className="bg-glow g2" />
-        <div className="bg-glow g3" />
-        <div className="bg-pattern" />
-        <div className="bg-mountain" />
-      </div>
       <SakuraPetals enabled={prefs.petals} />
       {body}
       <Toasts />

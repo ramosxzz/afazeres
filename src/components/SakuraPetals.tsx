@@ -36,11 +36,11 @@ export function SakuraPetals({ enabled }: { enabled: boolean }) {
     };
     resize();
 
-    const count = Math.round(Math.min(34, Math.max(14, w / 50)));
+    const count = Math.round(Math.min(16, Math.max(8, w / 110)));
     const spawn = (initial = false): Petal => ({
       x: Math.random() * w * 1.2 - w * 0.1,
       y: initial ? Math.random() * h : -20 - Math.random() * 60,
-      size: 6 + Math.random() * 8,
+      size: 4 + Math.random() * 5,
       speedY: 0.35 + Math.random() * 0.7,
       speedX: 0.2 + Math.random() * 0.6,
       rot: Math.random() * Math.PI * 2,
@@ -53,7 +53,8 @@ export function SakuraPetals({ enabled }: { enabled: boolean }) {
 
     const colors = () => {
       const s = getComputedStyle(document.documentElement);
-      return [s.getPropertyValue("--petal-1").trim() || "#ffc0da", s.getPropertyValue("--petal-2").trim() || "#ff8fc0"];
+      const c = s.getPropertyValue("--petal").trim() || "#e8b4b8";
+      return [c, c];
     };
     let palette = colors();
     const observer = new MutationObserver(() => (palette = colors()));
@@ -75,7 +76,7 @@ export function SakuraPetals({ enabled }: { enabled: boolean }) {
         ctx.translate(p.x, p.y);
         ctx.rotate(p.rot);
         ctx.scale(1, 0.35 + scaleY * 0.65);
-        ctx.globalAlpha = 0.55 + scaleY * 0.3;
+        ctx.globalAlpha = 0.25 + scaleY * 0.2;
         ctx.fillStyle = palette[p.hue];
         // Pétala: gota com um entalhe na ponta.
         const s = p.size;
@@ -83,11 +84,6 @@ export function SakuraPetals({ enabled }: { enabled: boolean }) {
         ctx.moveTo(0, -s);
         ctx.bezierCurveTo(s * 0.9, -s * 0.6, s * 0.7, s * 0.6, 0, s);
         ctx.bezierCurveTo(-s * 0.7, s * 0.6, -s * 0.9, -s * 0.6, 0, -s);
-        ctx.fill();
-        ctx.globalAlpha *= 0.5;
-        ctx.fillStyle = "#ffffff";
-        ctx.beginPath();
-        ctx.ellipse(-s * 0.15, -s * 0.2, s * 0.15, s * 0.4, 0.3, 0, Math.PI * 2);
         ctx.fill();
         ctx.restore();
       }

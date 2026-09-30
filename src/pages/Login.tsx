@@ -32,15 +32,7 @@ export function Login() {
   return (
     <div className="login">
       <div className="login-sun" aria-hidden="true" />
-      <svg className="login-torii" viewBox="0 0 200 160" aria-hidden="true">
-        <path d="M10 28 Q100 8 190 28 L186 40 Q100 22 14 40 Z" />
-        <rect x="30" y="52" width="140" height="10" rx="2" />
-        <rect x="46" y="36" width="12" height="124" rx="2" />
-        <rect x="142" y="36" width="12" height="124" rx="2" />
-        <rect x="94" y="38" width="12" height="16" />
-      </svg>
       <form className="login-card" onSubmit={submit}>
-        <span className="login-kanji">道</span>
         <h1>
           <span className="jp">{g.jp}</span>
           <span>afazeres</span>

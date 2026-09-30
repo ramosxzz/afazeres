@@ -1,10 +1,13 @@
 import { useEffect } from "react";
 import { useStore } from "../store";
+import { stageForLevel } from "../lib/mascot";
+import { Kitsune } from "./Kitsune";
 
 /** Carimbo hanko (判子) ao finalizar projeto e tela de level-up. */
 export function Celebration() {
   const c = useStore((s) => s.celebrations[0]);
   const close = useStore((s) => s.dismissCelebration);
+  const mascotName = useStore((s) => s.prefs.mascot_name);
 
   useEffect(() => {
     if (!c) return;
@@ -21,11 +24,6 @@ export function Celebration() {
 
   return (
     <div className="celebration" key={c.kind + ("title" in c ? c.title : c.level)} onClick={close}>
-      <div className="burst" aria-hidden="true">
-        {Array.from({ length: 18 }, (_, i) => (
-          <span key={i} style={{ "--i": i } as React.CSSProperties} />
-        ))}
-      </div>
       {c.kind === "project" ? (
         <div className="celebration-inner">
           <div className="hanko">
@@ -38,10 +36,16 @@ export function Celebration() {
         </div>
       ) : (
         <div className="celebration-inner">
-          <div className="levelup-kanji">{c.rankKanji}</div>
-          <p className="celebration-sub">レベルアップ · Level up!</p>
+          <div className="levelup-mascot">
+            <Kitsune level={c.level} mood="happy" size={150} />
+          </div>
+          <p className="celebration-sub">レベルアップ · Level up</p>
           <h2 className="celebration-title">Nível {c.level}</h2>
-          <p className="celebration-xp">Patente: {c.rank}</p>
+          <p className="celebration-xp">
+            {c.newTail
+              ? `${mascotName} ganhou a ${stageForLevel(c.level).tails}ª cauda! Nova patente: ${c.rankKanji} ${c.rank}`
+              : `Patente: ${c.rankKanji} ${c.rank}`}
+          </p>
         </div>
       )}
     </div>

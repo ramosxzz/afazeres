@@ -1,10 +1,10 @@
 # 道 afazeres · やること
 
-Painel pessoal de projetos e tarefas do **ramosxzz**, com alma japonesa.
+Painel pessoal de projetos e tarefas do **ramosxzz**. Minimalista, com alma japonesa.
 Front em React, back num Cloudflare Worker e banco no Cloudflare D1, tudo no mesmo deploy.
 
 ```
-夜桜 Yozakura · 東京 Neo-Tokyo · 和紙 Washi · 抹茶 Matcha
+墨 Sumi · 和紙 Washi · 藍 Ai · 抹茶 Matcha
 ```
 
 ---
@@ -19,10 +19,11 @@ Front em React, back num Cloudflare Worker e banco no Cloudflare D1, tudo no mes
 | 任務 | **Tarefas** | Agenda (atrasadas, hoje, amanhã, 7 dias, depois, sem prazo) ou agrupadas por projeto, com **adição rápida por sintaxe** (veja abaixo) |
 | 集中 | **Foco (Pomodoro)** | Timer com pincelada de tinta, ciclos 🌸, pausa curta e longa, som de sino de vento (風鈴) sintetizado, notificação do navegador, tempo no título da aba, mini-timer na sidebar, gráfico de minutos por dia e por projeto. Continua rodando se você recarregar a página |
 | 日記 | **Diário de dev** | Uma página por dia com humor, template "fiz / aprendi / travou / amanhã" e faixa de humor dos últimos 30 dias |
-| 実績 | **Conquistas** | XP, níveis e patentes (見習い Aprendiz → 侍 Samurai → 将軍 Shōgun → 伝説 Lenda), sequência de dias 🔥 e 19 conquistas em forma de selo hanko |
-| 完 | **Celebrações** | Carimbo hanko 完了 com taiko ao finalizar projeto, e tela de level-up |
+| 狐 | **Kitsune (mascote)** | Uma raposa em traço fino que **ganha uma cauda a cada patente**, de 1 até a lendária kyūbi (九尾) de 9 caudas. Ganha a marca vermelha na testa em Samurai e fogos-fátuos (kitsunebi) nas últimas patentes. Reage ao seu dia (feliz, concentrada no pomodoro, preocupada com atrasos, dormindo de madrugada). O nome dela (padrão: Kon) muda nas configurações |
+| 実績 | **Conquistas** | XP, níveis e patentes (見習い Aprendiz → 侍 Samurai → 将軍 Shōgun → 伝説 Lenda), a evolução da kitsune, sequência de dias 🔥 e 19 conquistas em forma de selo hanko |
+| 完 | **Celebrações** | Carimbo hanko 完了 com taiko ao finalizar projeto, e level-up com a kitsune (avisando quando ela ganha cauda nova) |
 | 探 | **Paleta de comandos** | `Ctrl K` busca projetos e tarefas, navega, troca tema, controla o pomodoro |
-| 設定 | **Configurações** | 4 temas, pétalas de sakura caindo (on/off), sons, backup e restauração em JSON |
+| 設定 | **Configurações** | 4 temas (escuro e claro, com uma única cor de destaque), pétalas de sakura discretas (desligadas por padrão), sons, nome da kitsune, backup e restauração em JSON |
 
 Também funciona no celular (barra inferior e modais em bottom sheet) e dá pra instalar como app (manifest PWA).
 
@@ -52,7 +53,7 @@ O XP é calculado a partir do estado atual, então desmarcar uma tarefa tira o X
 
 ## 🧱 Stack
 
-- **Front:** React 19, TypeScript, Vite, Zustand, wouter, dnd-kit, lucide, marked + DOMPurify. CSS próprio com design tokens por tema, sem framework de UI
+- **Front:** React 19, TypeScript, Vite, Zustand, wouter, dnd-kit, lucide, marked + DOMPurify. CSS próprio com design tokens por tema, sem framework de UI. Fontes Inter + Noto Sans JP
 - **Back:** Cloudflare Worker com [Hono](https://hono.dev)
 - **Banco:** Cloudflare D1 (SQLite). **As migrações rodam sozinhas** na primeira requisição (`worker/db.ts`), sem precisar de comando de migração
 - **Auth:** senha única (segredo `APP_PASSWORD`) → cookie HttpOnly assinado com HMAC, válido por 30 dias. Trocar a senha derruba todas as sessões
@@ -81,16 +82,9 @@ O `npm run dev` sobe o Vite **e** o Worker juntos (via `@cloudflare/vite-plugin`
 
 > Use **Workers**, não Pages. O Cloudflare recomenda Workers com static assets para apps novos, e é assim que o projeto está configurado (`wrangler.jsonc`).
 
-**1. Crie o banco D1**
+**1. Banco D1** ✅ já criado
 
-No painel: **Storage & Databases → D1 → Create**, com o nome `afazeres-db`. Ou pelo terminal:
-
-```bash
-npx wrangler login
-npx wrangler d1 create afazeres-db
-```
-
-Copie o `database_id` e cole no `wrangler.jsonc`, no lugar de `00000000-0000-0000-0000-000000000000`. Faça commit e push.
+O banco `afazeres-db` (região ENAM) já existe na conta e o `database_id` já está no `wrangler.jsonc`. Se um dia precisar recriar: `npx wrangler d1 create afazeres-db` e troque o ID.
 
 **2. Conecte o repositório**
 
@@ -134,5 +128,4 @@ Para mudar o schema, adicione um item novo **no fim** da lista `MIGRATIONS` em `
 - **Subtarefas / checklist** dentro de cada tarefa
 - **Tarefas recorrentes** (ex.: "renovar certificado" todo mês, "backup" toda sexta)
 - **Modo zen**: tela cheia só com o timer e a tarefa atual, com trilha lo-fi
-- **Mascote**: um kitsune/tanuki que evolui junto com a sua patente
 - **Calendário** com prazos de projetos e tarefas, e exportação `.ics`

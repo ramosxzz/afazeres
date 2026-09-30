@@ -6,8 +6,15 @@
 
 html,
 body {
-  margin: 0;
-  min-height: 100%;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font);
+  font-size: 14px;
+  line-height: 1.55;
+  letter-spacing: -0.006em;
+  font-feature-settings: "cv11", "ss01";
+  -webkit-font-smoothing: antialiased;
+  overflow-x: hidden;
 }
 
 body {
@@ -22,8 +29,9 @@ body {
 }
 
 h1, h2, h3, h4 {
+  letter-spacing: -0.02em;
   margin: 0;
-  font-weight: 700;
+  font-weight: 600;
   line-height: 1.2;
 }
 
@@ -51,12 +59,12 @@ button:disabled {
 }
 
 ::selection {
-  background: var(--accent);
-  color: var(--accent-ink);
+  background: var(--text);
+  color: var(--bg);
 }
 
 :focus-visible {
-  outline: 2px solid var(--accent);
+  outline: 1px solid var(--text-2);
   outline-offset: 2px;
   border-radius: 6px;
 }
@@ -78,7 +86,7 @@ code {
   padding: 1px 6px;
   border-radius: 6px;
   background: var(--surface-2);
-  color: var(--accent);
+  color: var(--text);
 }
 
 ::-webkit-scrollbar {
@@ -114,86 +122,9 @@ code {
   font-family: var(--font-jp);
 }
 
-/* ─────────── fundo artístico ─────────── */
+/* ─────────── fundo ─────────── */
 
-.bg-art {
-  position: fixed;
-  inset: 0;
-  z-index: 0;
-  pointer-events: none;
-  overflow: hidden;
-}
-.bg-glow {
-  position: absolute;
-  border-radius: 50%;
-  filter: blur(80px);
-  transition: background 0.6s var(--ease);
-}
-.bg-glow.g1 {
-  width: 60vw;
-  height: 60vw;
-  top: -25vw;
-  right: -15vw;
-  background: var(--glow-1);
-  animation: drift 26s ease-in-out infinite alternate;
-}
-.bg-glow.g2 {
-  width: 50vw;
-  height: 50vw;
-  bottom: -25vw;
-  left: -10vw;
-  background: var(--glow-2);
-  animation: drift 32s ease-in-out infinite alternate-reverse;
-}
-.bg-glow.g3 {
-  width: 30vw;
-  height: 30vw;
-  top: 40%;
-  left: 45%;
-  background: var(--glow-3);
-}
-/* Seigaiha (青海波) — ondas do mar em padrão tradicional */
-.bg-pattern {
-  position: absolute;
-  inset: 0;
-  --wave: var(--pattern);
-  background-image:
-    radial-gradient(circle at 100% 150%, transparent 24%, var(--wave) 24%, var(--wave) 28%, transparent 28%, transparent 36%, var(--wave) 36%, var(--wave) 40%, transparent 40%, transparent 48%, var(--wave) 48%, var(--wave) 52%, transparent 52%),
-    radial-gradient(circle at 0 150%, transparent 24%, var(--wave) 24%, var(--wave) 28%, transparent 28%, transparent 36%, var(--wave) 36%, var(--wave) 40%, transparent 40%, transparent 48%, var(--wave) 48%, var(--wave) 52%, transparent 52%),
-    radial-gradient(circle at 50% 100%, transparent 24%, var(--wave) 24%, var(--wave) 28%, transparent 28%, transparent 36%, var(--wave) 36%, var(--wave) 40%, transparent 40%, transparent 48%, var(--wave) 48%, var(--wave) 52%, transparent 52%);
-  background-size: 80px 40px;
-  mask-image: linear-gradient(180deg, transparent 0%, #000 55%, #000 100%);
-  -webkit-mask-image: linear-gradient(180deg, transparent 0%, #000 55%, #000 100%);
-  opacity: 0.9;
-}
-/* Monte Fuji minimalista no rodapé */
-.bg-mountain {
-  position: absolute;
-  right: 4vw;
-  bottom: -2px;
-  width: min(520px, 60vw);
-  aspect-ratio: 2.4 / 1;
-  background: linear-gradient(180deg, var(--surface-2), transparent 85%);
-  clip-path: polygon(0 100%, 36% 16%, 42% 8%, 47% 12%, 52% 6%, 58% 14%, 64% 16%, 100% 100%);
-  opacity: 0.6;
-}
-.bg-mountain::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  background: var(--text);
-  opacity: 0.06;
-  clip-path: polygon(36% 16%, 42% 8%, 47% 12%, 52% 6%, 58% 14%, 64% 16%, 60% 24%, 55% 20%, 50% 27%, 45% 21%, 40% 25%);
-}
 
-@keyframes drift {
-  from {
-    transform: translate(0, 0) scale(1);
-  }
-  to {
-    transform: translate(-6vw, 4vw) scale(1.1);
-  }
-}
 
 .petals {
   position: fixed;
@@ -210,17 +141,18 @@ code {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 8px;
-  height: 38px;
-  padding: 0 16px;
-  border-radius: 12px;
-  font-weight: 600;
-  font-size: 14px;
+  gap: 6px;
+  height: 34px;
+  padding: 0 14px;
+  border-radius: 8px;
+  font-weight: 500;
+  font-size: 13.5px;
   white-space: nowrap;
-  transition: transform 0.15s var(--ease), background 0.2s, box-shadow 0.2s, border-color 0.2s;
+  border: 1px solid transparent;
+  transition: background 0.15s, border-color 0.15s, opacity 0.15s;
 }
 .btn:active:not(:disabled) {
-  transform: translateY(1px) scale(0.98);
+  transform: translateY(1px);
 }
 .btn.sm {
   height: 30px;
@@ -229,41 +161,42 @@ code {
   border-radius: 9px;
 }
 .btn-primary {
-  background: linear-gradient(135deg, var(--accent), color-mix(in oklab, var(--accent) 60%, var(--accent-2)));
-  color: var(--accent-ink);
-  box-shadow: 0 6px 20px -8px var(--accent);
+  background: var(--text);
+  color: var(--bg);
 }
 .btn-primary:hover:not(:disabled) {
-  box-shadow: 0 8px 28px -6px var(--accent);
+  opacity: 0.85;
 }
 .btn-primary kbd {
-  background: rgba(0, 0, 0, 0.12);
+  background: transparent;
   border-color: rgba(0, 0, 0, 0.15);
   color: inherit;
   opacity: 0.7;
 }
 .btn-ghost {
-  background: var(--surface-2);
-  border: 1px solid var(--border);
+  background: transparent;
+  border-color: var(--border);
+  color: var(--text-2);
 }
 .btn-ghost:hover {
   border-color: var(--border-strong);
-  background: var(--surface);
+  background: var(--surface-2);
+  color: var(--text);
 }
 .btn-danger-ghost {
   color: var(--danger);
-  background: color-mix(in oklab, var(--danger) 10%, transparent);
+  background: transparent;
 }
 .btn-danger-ghost:hover {
-  background: color-mix(in oklab, var(--danger) 18%, transparent);
+  background: color-mix(in oklab, var(--danger) 10%, transparent);
 }
 
 .icon-btn {
   display: inline-grid;
   place-items: center;
-  width: 36px;
-  height: 36px;
-  border-radius: 10px;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
   color: var(--text-2);
   transition: background 0.15s, color 0.15s, transform 0.15s;
   flex-shrink: 0;
@@ -278,10 +211,11 @@ code {
   border-radius: 8px;
 }
 .icon-btn.lg {
+  border: 1px solid var(--border);
   width: 48px;
   height: 48px;
-  border-radius: 14px;
-  background: var(--surface-2);
+  border-radius: 50%;
+  background: transparent;
 }
 
 input,
@@ -289,19 +223,18 @@ textarea,
 select {
   font: inherit;
   color: var(--text);
-  background: var(--surface-2);
+  background: transparent;
   border: 1px solid var(--border);
-  border-radius: 10px;
-  padding: 9px 12px;
+  border-radius: 8px;
+  padding: 8px 11px;
   width: 100%;
-  transition: border-color 0.15s, box-shadow 0.15s, background 0.15s;
+  transition: border-color 0.15s;
 }
 input:focus,
 textarea:focus,
 select:focus {
   outline: none;
-  border-color: color-mix(in oklab, var(--accent) 60%, transparent);
-  box-shadow: 0 0 0 3px var(--accent-soft);
+  border-color: var(--text-2);
 }
 input::placeholder,
 textarea::placeholder {
@@ -322,7 +255,7 @@ select {
   cursor: pointer;
 }
 select option {
-  background: var(--surface-solid);
+  background: var(--elevated);
   color: var(--text);
 }
 input[type="date"] {
@@ -340,20 +273,20 @@ input[type="checkbox"] {
 }
 input[type="range"] {
   appearance: none;
-  height: 6px;
+  height: 2px;
   padding: 0;
   border: none;
   border-radius: 6px;
-  background: linear-gradient(90deg, var(--accent) var(--val, 0%), var(--surface-2) var(--val, 0%));
+  background: linear-gradient(90deg, var(--text) var(--val, 0%), var(--border-strong) var(--val, 0%));
   margin: 16px 0;
 }
 input[type="range"]::-webkit-slider-thumb {
   appearance: none;
-  width: 18px;
-  height: 18px;
+  width: 14px;
+  height: 14px;
   border-radius: 50%;
   background: var(--text);
-  border: 3px solid var(--accent);
+  border: none;
   cursor: grab;
 }
 input[type="range"]::-moz-range-thumb {
@@ -361,7 +294,7 @@ input[type="range"]::-moz-range-thumb {
   height: 14px;
   border-radius: 50%;
   background: var(--text);
-  border: 3px solid var(--accent);
+  border: none;
 }
 
 .spin {
