@@ -10,6 +10,7 @@ import { ProjectFormModal } from "./components/ProjectForm";
 import { TaskFormModal } from "./components/TaskForm";
 import { Celebration } from "./components/Celebration";
 import { ShortcutsHelp } from "./components/ShortcutsHelp";
+import { GithubImportModal } from "./components/GithubImport";
 import { Dashboard } from "./pages/Dashboard";
 import { Projects } from "./pages/Projects";
 import { ProjectDetail } from "./pages/ProjectDetail";
@@ -37,7 +38,7 @@ function useGlobalShortcuts() {
       }
       const el = e.target as HTMLElement;
       const typing = el.isContentEditable || ["INPUT", "TEXTAREA", "SELECT"].includes(el.tagName);
-      const overlayOpen = s.paletteOpen || s.projectForm.open || s.taskForm.open || s.helpOpen;
+      const overlayOpen = s.paletteOpen || s.projectForm.open || s.taskForm.open || s.helpOpen || s.githubOpen;
       if (typing || overlayOpen || e.ctrlKey || e.metaKey || e.altKey) return;
 
       const key = e.key.toLowerCase();
@@ -162,6 +163,7 @@ export function App() {
         <TaskFormModal />
         <CommandPalette />
         <ShortcutsHelp />
+        <GithubImportModal />
         <Celebration />
       </>
     );

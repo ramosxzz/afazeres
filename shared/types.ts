@@ -121,3 +121,42 @@ export interface BackupFile {
   focus: FocusSession[];
   settings: Record<string, string>;
 }
+
+// ───────────── GitHub ─────────────
+
+export interface GithubRepo {
+  id: number;
+  name: string;
+  full_name: string;
+  description: string;
+  html_url: string;
+  homepage: string;
+  language: string | null;
+  topics: string[];
+  private: boolean;
+  archived: boolean;
+  fork: boolean;
+  stars: number;
+  created_at: string;
+  pushed_at: string;
+}
+
+export interface GithubRepoList {
+  authenticated: boolean;
+  login: string;
+  repos: GithubRepo[];
+}
+
+export interface GithubRepoDetail {
+  full_name: string;
+  html_url: string;
+  description: string;
+  language: string | null;
+  default_branch: string;
+  stars: number;
+  open_issues: number;
+  private: boolean;
+  archived: boolean;
+  pushed_at: string;
+  last_commit: { sha: string; message: string; date: string; url: string; author: string } | null;
+}

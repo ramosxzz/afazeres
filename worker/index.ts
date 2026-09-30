@@ -8,6 +8,9 @@ import {
   TASK_KINDS,
   TASK_STATUSES,
   type BackupFile,
+  type GithubRepo,
+  type GithubRepoDetail,
+  type GithubRepoList,
   type FocusSession,
   type JournalEntry,
   type Project,
@@ -20,6 +23,10 @@ import { ensureSchema, logActivity, now, uid } from "./db";
 interface Env {
   DB: D1Database;
   APP_PASSWORD?: string;
+  /** opcional: token do GitHub (read-only) para ver repos privados e ter limite maior */
+  GITHUB_TOKEN?: string;
+  /** opcional: outra URL da API (GitHub Enterprise ou testes locais) */
+  GITHUB_API_URL?: string;
 }
 
 type AppCtx = Context<{ Bindings: Env }>;
@@ -183,6 +190,7 @@ async function updateRow(db: D1Database, table: string, id: string, row: Record<
 
 app.onError((err, c) => {
   if (err instanceof BadRequest) return c.json({ error: err.message }, 400);
+  if (err instanceof GithubError) return c.json({ error: err.message, code: "github" }, err.status);
   console.error(err);
   return c.json({ error: "Erro interno no servidor" }, 500);
 });
@@ -613,6 +621,158 @@ app.post("/import", async (c) => {
   await db.batch(stmts); // batch = transação: ou importa tudo, ou nada.
   await logActivity(db, "import", `Backup importado (${file.projects.length} projetos, ${file.tasks.length} tarefas)`);
   return c.json({ ok: true });
+});
+
+// ───────────────────────── GitHub ─────────────────────────
+
+class GithubError extends Error {
+  constructor(
+    message: string,
+    public status: 400 | 401 | 404 | 429 | 502,
+  ) {
+    super(message);
+  }
+}
+
+/** GET na API do GitHub com cache de alguns minutos (Cache API do Workers). */
+async function gh<T>(env: Env, path: string, ttl = 300): Promise<T> {
+  const token = env.GITHUB_TOKEN?.trim();
+  const cacheKey = new Request(`https://github-cache.afazeres.internal/${token ? "a" : "p"}${path}`);
+  const cache = caches.default;
+  const hit = await cache.match(cacheKey);
+  if (hit) return hit.json<T>();
+
+  const base = (env.GITHUB_API_URL || "https://api.github.com").replace(/\/+$/, "");
+  const res = await fetch(`${base}${path}`, {
+    headers: {
+      Accept: "application/vnd.github+json",
+      "User-Agent": "afazeres-worker",
+      "X-GitHub-Api-Version": "2022-11-28",
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+  });
+  if (!res.ok) {
+    if (res.status === 401) throw new GithubError("Token do GitHub inválido ou expirado (GITHUB_TOKEN).", 401);
+    if ((res.status === 403 || res.status === 429) && res.headers.get("x-ratelimit-remaining") === "0") {
+      throw new GithubError(
+        token
+          ? "Limite da API do GitHub atingido. Tente de novo em alguns minutos."
+          : "Limite da API do GitHub atingido (sem token o limite é bem baixo). Configure o segredo GITHUB_TOKEN.",
+        429,
+      );
+    }
+    if (res.status === 404) throw new GithubError("Não encontrado no GitHub (ou é privado e falta o GITHUB_TOKEN).", 404);
+    throw new GithubError(`GitHub respondeu ${res.status}`, 502);
+  }
+  const body = await res.text();
+  await cache.put(
+    cacheKey,
+    new Response(body, { headers: { "Content-Type": "application/json", "Cache-Control": `max-age=${ttl}` } }),
+  );
+  return JSON.parse(body) as T;
+}
+
+interface RawRepo {
+  id: number;
+  name: string;
+  full_name: string;
+  description: string | null;
+  html_url: string;
+  homepage: string | null;
+  language: string | null;
+  topics?: string[];
+  private: boolean;
+  archived: boolean;
+  fork: boolean;
+  stargazers_count: number;
+  open_issues_count: number;
+  default_branch: string;
+  created_at: string;
+  pushed_at: string;
+}
+
+const toRepo = (r: RawRepo): GithubRepo => ({
+  id: r.id,
+  name: r.name,
+  full_name: r.full_name,
+  description: r.description ?? "",
+  html_url: r.html_url,
+  homepage: r.homepage ?? "",
+  language: r.language,
+  topics: r.topics ?? [],
+  private: r.private,
+  archived: r.archived,
+  fork: r.fork,
+  stars: r.stargazers_count,
+  created_at: r.created_at,
+  pushed_at: r.pushed_at,
+});
+
+app.get("/github/repos", async (c) => {
+  const hasToken = Boolean(c.env.GITHUB_TOKEN?.trim());
+  const user = (c.req.query("user") ?? "").trim();
+  if (user && !/^[A-Za-z0-9-]{1,39}$/.test(user)) throw new BadRequest("Usuário do GitHub inválido");
+
+  let login = user;
+  let path: (page: number) => string;
+  if (hasToken) {
+    const me = await gh<{ login: string }>(c.env, "/user", 3600);
+    login = me.login;
+  }
+  if (hasToken && (!user || user.toLowerCase() === login.toLowerCase())) {
+    // com token: inclui privados e repos de organizações
+    path = (page) => `/user/repos?per_page=100&page=${page}&sort=pushed&affiliation=owner,collaborator,organization_member`;
+  } else {
+    if (!user) throw new BadRequest("Informe o usuário do GitHub");
+    path = (page) => `/users/${user}/repos?per_page=100&page=${page}&sort=pushed&type=owner`;
+  }
+
+  const repos: GithubRepo[] = [];
+  for (let page = 1; page <= 3; page++) {
+    const batch = await gh<RawRepo[]>(c.env, path(page));
+    repos.push(...batch.map(toRepo));
+    if (batch.length < 100) break;
+  }
+  const result: GithubRepoList = { authenticated: hasToken, login, repos };
+  return c.json(result);
+});
+
+app.get("/github/repo", async (c) => {
+  const full = c.req.query("repo") ?? "";
+  if (!/^[A-Za-z0-9-]{1,39}\/[A-Za-z0-9._-]{1,100}$/.test(full)) throw new BadRequest("Repositório inválido");
+  const r = await gh<RawRepo>(c.env, `/repos/${full}`);
+  let last_commit: GithubRepoDetail["last_commit"] = null;
+  try {
+    const commits = await gh<
+      { sha: string; html_url: string; commit: { message: string; author: { name: string; date: string } | null } }[]
+    >(c.env, `/repos/${full}/commits?per_page=1`);
+    const k = commits[0];
+    if (k) {
+      last_commit = {
+        sha: k.sha.slice(0, 7),
+        message: k.commit.message.split("\n")[0].slice(0, 200),
+        date: k.commit.author?.date ?? r.pushed_at,
+        url: k.html_url,
+        author: k.commit.author?.name ?? "",
+      };
+    }
+  } catch {
+    /* repo vazio ou sem acesso a commits */
+  }
+  const detail: GithubRepoDetail = {
+    full_name: r.full_name,
+    html_url: r.html_url,
+    description: r.description ?? "",
+    language: r.language,
+    default_branch: r.default_branch,
+    stars: r.stargazers_count,
+    open_issues: r.open_issues_count,
+    private: r.private,
+    archived: r.archived,
+    pushed_at: r.pushed_at,
+    last_commit,
+  };
+  return c.json(detail);
 });
 
 app.all("*", (c) => c.json({ error: "Rota não encontrada" }, 404));

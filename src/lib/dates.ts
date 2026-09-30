@@ -66,7 +66,7 @@ export function timeAgo(iso: string): string {
   const d = Math.floor(h / 24);
   if (d < 30) return `${d} d`;
   const mo = Math.floor(d / 30);
-  if (mo < 12) return `${mo} mês${mo > 1 ? "es" : ""}`;
+  if (mo < 12) return `${mo} ${mo > 1 ? "meses" : "mês"}`;
   return `${Math.floor(mo / 12)} ano${mo >= 24 ? "s" : ""}`;
 }
 

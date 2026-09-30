@@ -6,7 +6,7 @@ import {
 } from "@dnd-kit/core";
 import { SortableContext, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { Bug, Columns3, LayoutGrid, List, Pin, Plus, Search } from "lucide-react";
+import { Bug, Columns3, FolderGit2, LayoutGrid, List, Pin, Plus, Search } from "lucide-react";
 import { PRIORITIES, PROJECT_TYPES, type Project, type ProjectStatus } from "@shared/types";
 import { useStore } from "../store";
 import { BOARD_STATUSES, PRIORITY_META, STATUS_META, TYPE_META } from "../lib/constants";
@@ -84,9 +84,14 @@ export function Projects() {
         title="Projetos"
         subtitle={`${projects.filter((p) => p.status === "active").length} em andamento · ${projects.filter((p) => p.status === "support").length} em suporte · ${projects.filter((p) => p.status === "done").length} finalizados`}
         actions={
-          <button className="btn btn-primary" onClick={() => set({ projectForm: { open: true } })}>
-            <Plus size={16} /> Novo projeto
-          </button>
+          <>
+            <button className="btn btn-ghost" onClick={() => set({ githubOpen: true })}>
+              <FolderGit2 size={16} /> <span className="hide-sm">Importar do GitHub</span>
+            </button>
+            <button className="btn btn-primary" onClick={() => set({ projectForm: { open: true } })}>
+              <Plus size={16} /> Novo projeto
+            </button>
+          </>
         }
       />
 
@@ -142,9 +147,14 @@ export function Projects() {
       {projects.length === 0 ? (
         <Empty kanji="始" title="Todo grande projeto começa com um passo">
           <p>Cadastre seus projetos — em andamento, finalizados, em suporte — e acompanhe tudo num lugar só.</p>
-          <button className="btn btn-primary" onClick={() => set({ projectForm: { open: true } })}>
-            <Plus size={16} /> Criar projeto
-          </button>
+          <div className="empty-actions">
+            <button className="btn btn-primary" onClick={() => set({ projectForm: { open: true } })}>
+              <Plus size={16} /> Criar projeto
+            </button>
+            <button className="btn btn-ghost" onClick={() => set({ githubOpen: true })}>
+              <FolderGit2 size={16} /> Importar do GitHub
+            </button>
+          </div>
         </Empty>
       ) : view === "board" ? (
         <Board projects={filtered} showArchived={showArchived} />

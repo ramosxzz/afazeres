@@ -108,6 +108,18 @@ Pronto: a cada push na branch principal o Cloudflare builda e publica. Na primei
 
 **Deploy manual** (opcional): `npm run deploy`.
 
+### 🐙 Integração com o GitHub
+
+Em **Projetos → Importar do GitHub** (ou `Ctrl K` → "Importar projetos do GitHub") você lista seus repositórios, marca os que quer e eles viram projetos, com descrição, linguagem e tópicos como stack, link do repo e do site. O status é sugerido pelo último push, e dá para mudar antes de importar. Na página de cada projeto com repositório no GitHub aparece um card com último commit, último push, issues abertas e estrelas.
+
+Sem configurar nada, funciona com repositórios **públicos**, mas o GitHub limita a 60 consultas por hora por IP (e o IP do Worker é compartilhado). Por isso vale criar um token **somente leitura**:
+
+1. GitHub → **Settings → Developer settings → Personal access tokens → Fine-grained tokens → Generate new token**
+2. **Repository access:** *All repositories* · **Permissions → Repository:** *Contents: Read-only* (Metadata já vem junto)
+3. Copie o token e salve no Cloudflare como **Secret** `GITHUB_TOKEN` (mesmo lugar do `APP_PASSWORD`)
+
+Com o token, a lista inclui seus repositórios privados e os das suas organizações. As respostas do GitHub ficam em cache por 5 minutos.
+
 ### 🔒 Mais segurança (recomendado)
 
 A senha já protege a API, mas como é um app pessoal vale colocar o **Cloudflare Access** na frente (Zero Trust → Access → Applications → Self-hosted, liberando só o seu e-mail). É grátis até 50 usuários e adiciona login com código por e-mail ou Google/GitHub antes mesmo de a página carregar.

@@ -9,6 +9,7 @@ import { formatLong, formatMinutes, timeAgo } from "../lib/dates";
 import { QuickAdd } from "../components/QuickAdd";
 import { TaskRow } from "../components/TaskRow";
 import { DueBadge, Empty, MarkdownEditor, ProgressRing } from "../components/ui";
+import { GithubCard } from "../components/GithubCard";
 
 type Tab = "tasks" | "notes" | "activity";
 
@@ -300,6 +301,7 @@ export function ProjectDetail() {
               </li>
             </ul>
           </div>
+          {p.repo_url && <GithubCard repoUrl={p.repo_url} />}
           {p.stack.length > 0 && (
             <div className="card">
               <h4 className="side-title">技術 Stack</h4>

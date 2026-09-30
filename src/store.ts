@@ -16,6 +16,7 @@ export interface Prefs {
   long_break: number;
   display_name: string;
   mascot_name: string;
+  github_user: string;
 }
 
 const DEFAULT_PREFS: Prefs = {
@@ -27,6 +28,7 @@ const DEFAULT_PREFS: Prefs = {
   long_break: 15,
   display_name: "ramosxzz",
   mascot_name: "Kon",
+  github_user: "ramosxzz",
 };
 
 export interface Toast {
@@ -67,6 +69,7 @@ interface State {
   celebrations: Celebration[];
   paletteOpen: boolean;
   helpOpen: boolean;
+  githubOpen: boolean;
   projectForm: { open: boolean; project?: Project; status?: Project["status"] };
   taskForm: { open: boolean; task?: Task; projectId?: string | null };
   pomodoro: Pomodoro;
@@ -81,7 +84,7 @@ interface State {
   dismissCelebration: () => void;
   set: (partial: Partial<State>) => void;
 
-  createProject: (input: ProjectInput) => Promise<Project | undefined>;
+  createProject: (input: ProjectInput, opts?: { silent?: boolean }) => Promise<Project | undefined>;
   updateProject: (id: string, patch: ProjectInput) => Promise<void>;
   deleteProject: (id: string) => Promise<void>;
   createTask: (input: TaskInput) => Promise<Task | undefined>;
@@ -160,6 +163,7 @@ export const useStore = create<State>((set, get) => {
     celebrations: [],
     paletteOpen: false,
     helpOpen: false,
+    githubOpen: false,
     projectForm: { open: false },
     taskForm: { open: false },
     pomodoro: {
@@ -234,11 +238,11 @@ export const useStore = create<State>((set, get) => {
     dismissCelebration: () => set({ celebrations: get().celebrations.slice(1) }),
 
     // ───── projetos ─────
-    createProject: async (input) => {
+    createProject: async (input, opts) => {
       try {
         const p = await api<Project>("/projects", { method: "POST", body: input });
         set({ projects: [...get().projects, p] });
-        get().toast(`Projeto "${p.name}" criado`, "success", { kanji: p.icon });
+        if (!opts?.silent) get().toast(`Projeto "${p.name}" criado`, "success", { kanji: p.icon });
         bumpStats();
         return p;
       } catch (e) {

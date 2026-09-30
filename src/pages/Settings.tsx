@@ -1,5 +1,5 @@
 import { useRef, useState } from "react";
-import { Download, LogOut, Upload, Volume2 } from "lucide-react";
+import { Download, FolderGit2, LogOut, Upload, Volume2 } from "lucide-react";
 import type { BackupFile } from "@shared/types";
 import { api } from "../api";
 import { useStore, type ThemeId } from "../store";
@@ -108,6 +108,22 @@ export function Settings() {
           </label>
           <button className="btn btn-ghost sm" onClick={playFurin}>
             <Volume2 size={14} /> Testar 風鈴
+          </button>
+        </div>
+      </section>
+
+      <section className="card">
+        <h3 className="settings-title">
+          <span className="card-kanji">連携</span> GitHub
+        </h3>
+        <p className="muted small">
+          Importe seus repositórios como projetos e veja último commit, push e issues na página de cada projeto. Sem token
+          funciona só com repositórios públicos e com limite baixo de consultas. Para incluir os privados, crie um token
+          read-only e salve no Cloudflare como o segredo <code>GITHUB_TOKEN</code> (passo a passo no README).
+        </p>
+        <div className="settings-row">
+          <button className="btn btn-ghost" onClick={() => useStore.getState().set({ githubOpen: true })}>
+            <FolderGit2 size={16} /> Importar do GitHub
           </button>
         </div>
       </section>

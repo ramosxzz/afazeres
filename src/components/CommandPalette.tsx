@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { useLocation } from "wouter";
 import {
-  BookOpen, CheckSquare, FolderKanban, FolderPlus, Home, ListPlus, Palette, Pause, Play, Settings, Sparkles, Timer, Trophy, Wind,
+  BookOpen, CheckSquare, FolderGit2, FolderKanban, FolderPlus, Home, ListPlus, Palette, Pause, Play, Settings, Sparkles, Timer, Trophy, Wind,
 } from "lucide-react";
 import { useStore, type ThemeId } from "../store";
 import { STATUS_META } from "../lib/constants";
@@ -51,6 +51,14 @@ export function CommandPalette() {
     const base: Item[] = [
       { id: "new-task", group: "Ações", label: "Nova tarefa", hint: "N", icon: <ListPlus size={16} />, run: () => set({ taskForm: { open: true } }) },
       { id: "new-project", group: "Ações", label: "Novo projeto", hint: "P", icon: <FolderPlus size={16} />, run: () => set({ projectForm: { open: true } }) },
+      {
+        id: "github",
+        group: "Ações",
+        label: "Importar projetos do GitHub",
+        icon: <FolderGit2 size={16} />,
+        keywords: "github repositorio repo importar",
+        run: () => set({ githubOpen: true }),
+      },
       {
         id: "pomo",
         group: "Ações",
