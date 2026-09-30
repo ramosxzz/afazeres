@@ -634,13 +634,25 @@ class GithubError extends Error {
   }
 }
 
+interface GhOpts {
+  /** ignora o cache (botão "Buscar") */
+  fresh?: boolean;
+  /** recebe os escopos do token clássico (header x-oauth-scopes) */
+  meta?: { scopes: string | null };
+}
+
 /** GET na API do GitHub com cache de alguns minutos (Cache API do Workers). */
-async function gh<T>(env: Env, path: string, ttl = 300): Promise<T> {
+async function gh<T>(env: Env, path: string, ttl = 300, opts: GhOpts = {}): Promise<T> {
   const token = env.GITHUB_TOKEN?.trim();
   const cacheKey = new Request(`https://github-cache.afazeres.internal/${token ? "a" : "p"}${path}`);
   const cache = caches.default;
-  const hit = await cache.match(cacheKey);
-  if (hit) return hit.json<T>();
+  if (!opts.fresh) {
+    const hit = await cache.match(cacheKey);
+    if (hit) {
+      if (opts.meta) opts.meta.scopes = hit.headers.get("x-oauth-scopes");
+      return hit.json<T>();
+    }
+  }
 
   const base = (env.GITHUB_API_URL || "https://api.github.com").replace(/\/+$/, "");
   const res = await fetch(`${base}${path}`, {
@@ -665,10 +677,11 @@ async function gh<T>(env: Env, path: string, ttl = 300): Promise<T> {
     throw new GithubError(`GitHub respondeu ${res.status}`, 502);
   }
   const body = await res.text();
-  await cache.put(
-    cacheKey,
-    new Response(body, { headers: { "Content-Type": "application/json", "Cache-Control": `max-age=${ttl}` } }),
-  );
+  const scopes = res.headers.get("x-oauth-scopes");
+  if (opts.meta) opts.meta.scopes = scopes;
+  const headers: Record<string, string> = { "Content-Type": "application/json", "Cache-Control": `max-age=${ttl}` };
+  if (scopes !== null) headers["x-oauth-scopes"] = scopes;
+  await cache.put(cacheKey, new Response(body, { headers }));
   return JSON.parse(body) as T;
 }
 
@@ -709,14 +722,18 @@ const toRepo = (r: RawRepo): GithubRepo => ({
 });
 
 app.get("/github/repos", async (c) => {
-  const hasToken = Boolean(c.env.GITHUB_TOKEN?.trim());
+  const token = c.env.GITHUB_TOKEN?.trim() ?? "";
+  const hasToken = Boolean(token);
+  const fresh = c.req.query("fresh") === "1";
   const user = (c.req.query("user") ?? "").trim();
   if (user && !/^[A-Za-z0-9-]{1,39}$/.test(user)) throw new BadRequest("Usuário do GitHub inválido");
 
   let login = user;
+  let tokenLogin = "";
   let path: (page: number) => string;
+  const meta = { scopes: null as string | null };
   if (hasToken) {
-    const me = await gh<{ login: string }>(c.env, "/user", 3600);
+    const me = await gh<{ login: string }>(c.env, "/user", 3600, { fresh, meta });
     login = me.login;
   }
   if (hasToken && (!user || user.toLowerCase() === login.toLowerCase())) {
@@ -724,16 +741,27 @@ app.get("/github/repos", async (c) => {
     path = (page) => `/user/repos?per_page=100&page=${page}&sort=pushed&affiliation=owner,collaborator,organization_member`;
   } else {
     if (!user) throw new BadRequest("Informe o usuário do GitHub");
+    tokenLogin = login;
+    login = user;
     path = (page) => `/users/${user}/repos?per_page=100&page=${page}&sort=pushed&type=owner`;
   }
 
   const repos: GithubRepo[] = [];
   for (let page = 1; page <= 3; page++) {
-    const batch = await gh<RawRepo[]>(c.env, path(page));
+    const batch = await gh<RawRepo[]>(c.env, path(page), 300, { fresh });
     repos.push(...batch.map(toRepo));
     if (batch.length < 100) break;
   }
-  const result: GithubRepoList = { authenticated: hasToken, login, repos };
+  const result: GithubRepoList = {
+    authenticated: hasToken,
+    login,
+    repos,
+    // ajuda a diagnosticar por que os privados não aparecem
+    token_kind: !hasToken ? null : token.startsWith("github_pat_") ? "fine-grained" : token.startsWith("ghp_") ? "classic" : "other",
+    scopes: meta.scopes,
+    listed_as_user: hasToken && !path(1).startsWith("/users/"),
+    token_login: tokenLogin || (hasToken ? login : null),
+  };
   return c.json(result);
 });
 

@@ -1806,3 +1806,25 @@
     margin-left: 27px;
   }
 }
+.gh-hint {
+  border: 1px solid color-mix(in oklab, var(--warning) 45%, var(--border));
+  border-radius: 8px;
+  padding: 10px 12px;
+  margin-bottom: 12px;
+  font-size: 12.5px;
+  color: var(--text-2);
+  line-height: 1.55;
+}
+.gh-hint strong {
+  display: block;
+  color: var(--text);
+  font-weight: 500;
+  margin-bottom: 4px;
+}
+.gh-hint ol {
+  margin: 4px 0;
+  padding-left: 18px;
+}
+.gh-hint p {
+  margin: 4px 0 0;
+}

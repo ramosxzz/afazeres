@@ -29,11 +29,13 @@ export function GithubImportModal() {
 
   const imported = useMemo(() => new Set(projects.map((p) => normUrl(p.repo_url)).filter(Boolean)), [projects]);
 
-  const load = async (login = user) => {
+  const load = async (fresh = false, login = user) => {
     setLoading(true);
     setError("");
     try {
-      const res = await api<GithubRepoList>(`/github/repos?user=${encodeURIComponent(login.trim())}`);
+      const res = await api<GithubRepoList>(
+        `/github/repos?user=${encodeURIComponent(login.trim())}${fresh ? "&fresh=1" : ""}`,
+      );
       setData(res);
       if (res.login && res.login !== prefs.github_user) setPrefs({ github_user: res.login });
       if (res.login) setUser(res.login);
@@ -98,7 +100,7 @@ export function GithubImportModal() {
           <span className="muted small">
             {data
               ? data.authenticated
-                ? `Conectado como ${data.login} · inclui privados`
+                ? `Token de ${data.token_login} · ${data.repos.filter((r) => r.private).length} privado(s)`
                 : "Sem token: só repositórios públicos"
               : ""}
           </span>
@@ -117,7 +119,7 @@ export function GithubImportModal() {
         className="gh-toolbar"
         onSubmit={(e) => {
           e.preventDefault();
-          void load();
+          void load(true);
         }}
       >
         <label className="gh-user">
@@ -136,6 +138,7 @@ export function GithubImportModal() {
       </form>
 
       {error && <p className="gh-error">{error}</p>}
+      {data && <TokenHint data={data} />}
 
       {data && (
         <>
@@ -203,5 +206,74 @@ export function GithubImportModal() {
 
       {!data && !loading && !error && <p className="muted small">Digite seu usuário e clique em Buscar.</p>}
     </Modal>
+  );
+}
+
+/** Explica por que os repositórios privados não aparecem (quando for o caso). */
+function TokenHint({ data }: { data: GithubRepoList }) {
+  const privates = data.repos.filter((r) => r.private).length;
+  if (data.authenticated && data.listed_as_user && privates > 0) return null;
+
+  let title: string;
+  let steps: React.ReactNode;
+  if (!data.authenticated) {
+    title = "O app não está recebendo o token do GitHub.";
+    steps = (
+      <ol>
+        <li>
+          No Cloudflare: Workers &amp; Pages → afazeres → Settings → Variables and Secrets.
+        </li>
+        <li>
+          Confira se existe um <b>Secret</b> com o nome exatamente <code>GITHUB_TOKEN</code> (maiúsculas, sem espaço) e se você
+          clicou em <b>Deploy</b> depois de salvar.
+        </li>
+        <li>Espere alguns segundos, recarregue a página e clique em Buscar.</li>
+      </ol>
+    );
+  } else if (!data.listed_as_user) {
+    title = `O token é da conta "${data.token_login}", mas você buscou "${data.login}". Para outra conta só aparecem os públicos.`;
+    steps = <p>Busque por {data.token_login} ou gere o token logado na conta {data.login}.</p>;
+  } else if (data.token_kind === "classic") {
+    title = "Seu token clássico não tem permissão para repositórios privados.";
+    steps = (
+      <p>
+        Escopos atuais: <code>{data.scopes || "nenhum"}</code>. Gere um novo token clássico marcando o escopo <code>repo</code>{" "}
+        e troque o valor do <code>GITHUB_TOKEN</code> no Cloudflare.
+      </p>
+    );
+  } else {
+    title = "O token funciona, mas só enxerga repositórios públicos.";
+    steps = (
+      <ol>
+        <li>
+          No GitHub: Settings → Developer settings → Personal access tokens → <b>Fine-grained tokens</b> → abra o seu token.
+        </li>
+        <li>
+          Em <b>Repository access</b>, troque &quot;Public repositories&quot; por <b>All repositories</b> (ou selecione os repos).
+        </li>
+        <li>
+          Em <b>Permissions → Repositories</b>, adicione <b>Contents: Read-only</b> e salve. Não precisa trocar o token no
+          Cloudflare.
+        </li>
+        <li>Volte aqui e clique em Buscar.</li>
+      </ol>
+    );
+  }
+  if (data.authenticated && data.listed_as_user && privates === 0) {
+    steps = (
+      <>
+        {steps}
+        <p className="muted">
+          Se os privados forem de uma <b>organização</b>, crie o token com a organização como &quot;Resource owner&quot; (ela
+          precisa permitir tokens fine-grained). Se você realmente não tem repositórios privados, pode ignorar este aviso.
+        </p>
+      </>
+    );
+  }
+  return (
+    <div className="gh-hint">
+      <strong>{title}</strong>
+      {steps}
+    </div>
   );
 }

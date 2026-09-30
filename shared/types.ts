@@ -145,6 +145,13 @@ export interface GithubRepoList {
   authenticated: boolean;
   login: string;
   repos: GithubRepo[];
+  token_kind: "fine-grained" | "classic" | "other" | null;
+  /** escopos do token clássico (ex.: "repo, read:org") */
+  scopes: string | null;
+  /** true quando a lista veio de /user/repos (com privados), false quando de /users/{nome}/repos */
+  listed_as_user: boolean;
+  /** dono do token (quando há token) */
+  token_login: string | null;
 }
 
 export interface GithubRepoDetail {
