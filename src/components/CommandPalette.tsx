@@ -30,6 +30,8 @@ export function CommandPalette() {
   const pomo = useStore((s) => s.pomodoro);
   const pomoStart = useStore((s) => s.pomoStart);
   const pomoPause = useStore((s) => s.pomoPause);
+  const pomoFinish = useStore((s) => s.pomoFinish);
+  const focusInProgress = pomo.mode === "focus" && (pomo.running || pomo.remaining < pomo.duration);
   const [, navigate] = useLocation();
   const [q, setQ] = useState("");
   const [active, setActive] = useState(0);
@@ -67,6 +69,18 @@ export function CommandPalette() {
         keywords: "pomodoro timer foco",
         run: pomo.running ? pomoPause : pomoStart,
       },
+      ...(focusInProgress
+        ? [
+            {
+              id: "pomo-finish",
+              group: "Ações",
+              label: "Finalizar foco e salvar o tempo",
+              icon: <Timer size={16} />,
+              keywords: "pomodoro parar encerrar terminar",
+              run: pomoFinish,
+            },
+          ]
+        : []),
       {
         id: "petals",
         group: "Ações",
@@ -111,7 +125,7 @@ export function CommandPalette() {
         run: () => set({ taskForm: { open: true, task: t } }),
       }));
     return [...base, ...projectItems, ...taskItems];
-  }, [projects, tasks, prefs.petals, pomo.running, navigate, set, setPrefs, pomoStart, pomoPause]);
+  }, [projects, tasks, prefs.petals, pomo.running, focusInProgress, navigate, set, setPrefs, pomoStart, pomoPause, pomoFinish]);
 
   const filtered = useMemo(() => {
     const nq = norm(q.trim());

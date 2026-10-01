@@ -1,7 +1,7 @@
 import { type ReactNode } from "react";
 import { Link, useLocation } from "wouter";
 import {
-  BookOpen, CheckSquare, FolderKanban, Home, Pause, Play, Plus, Search, Settings, Timer, Trophy,
+  BookOpen, Check, CheckSquare, FolderKanban, Home, Pause, Play, Plus, Search, Settings, Timer, Trophy,
 } from "lucide-react";
 import { useStore } from "../store";
 import { levelInfo } from "../lib/xp";
@@ -31,6 +31,7 @@ function MiniPomodoro() {
   const p = useStore((s) => s.pomodoro);
   const start = useStore((s) => s.pomoStart);
   const pause = useStore((s) => s.pomoPause);
+  const finish = useStore((s) => s.pomoFinish);
   useTick(p.running);
   const remaining = p.running && p.endsAt ? p.endsAt - Date.now() : p.remaining;
   const pct = 1 - remaining / p.duration;
@@ -41,9 +42,16 @@ function MiniPomodoro() {
         <span className="mini-pomo-kanji">{p.mode === "focus" ? "集" : "休"}</span>
         {formatClock(remaining)}
       </Link>
-      <button className="icon-btn sm" onClick={p.running ? pause : start} aria-label={p.running ? "Pausar" : "Continuar"}>
-        {p.running ? <Pause size={14} /> : <Play size={14} />}
-      </button>
+      <div className="mini-pomo-actions">
+        <button className="icon-btn sm" onClick={p.running ? pause : start} aria-label={p.running ? "Pausar" : "Continuar"}>
+          {p.running ? <Pause size={14} /> : <Play size={14} />}
+        </button>
+        {p.mode === "focus" && (
+          <button className="icon-btn sm" onClick={finish} title="Finalizar e salvar o tempo focado" aria-label="Finalizar foco">
+            <Check size={14} />
+          </button>
+        )}
+      </div>
       <div className="mini-pomo-bar" style={{ width: `${pct * 100}%` }} />
     </div>
   );

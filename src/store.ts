@@ -95,6 +95,8 @@ interface State {
   pomoStart: () => void;
   pomoPause: () => void;
   pomoReset: (mode?: PomodoroMode) => void;
+  /** encerra o foco antes do fim, salvando os minutos já focados */
+  pomoFinish: () => void;
   pomoTick: () => void;
   pomoSet: (p: Partial<Pomodoro>) => void;
 }
@@ -134,6 +136,12 @@ function prefsFromSettings(settings: Record<string, string>, base: Prefs): Prefs
   return sanitizePrefs(out);
 }
 
+/** Tempo efetivamente focado na sessão atual (pausas não contam). */
+export function pomoElapsedMs(p: Pomodoro, now = Date.now()) {
+  const remaining = p.running && p.endsAt ? Math.max(0, p.endsAt - now) : p.remaining;
+  return Math.max(0, p.duration - remaining);
+}
+
 function durationFor(mode: PomodoroMode, prefs: Prefs) {
   const min = mode === "focus" ? prefs.focus_minutes : mode === "short" ? prefs.short_break : prefs.long_break;
   return min * 60_000;
@@ -146,6 +154,27 @@ const initialPrefs = loadLocalPrefs();
 
 export const useStore = create<State>((set, get) => {
   const fail = (e: unknown) => get().toast(e instanceof Error ? e.message : "Algo deu errado", "error");
+  /** Registra uma sessão de foco, conta o ciclo e já prepara a pausa. */
+  const completeFocus = (minutes: number, early: boolean) => {
+    const p = get().pomodoro;
+    api("/focus", {
+      method: "POST",
+      body: { minutes, project_id: p.projectId, task_id: p.taskId, label: p.label, started_at: p.startedAt },
+    })
+      .then(() => bumpStats())
+      .catch(fail);
+    // ciclo só conta se a sessão teve pelo menos metade do tempo planejado
+    const cycles = minutes * 60_000 >= p.duration / 2 ? p.cycles + 1 : p.cycles;
+    const next: PomodoroMode = cycles > p.cycles && cycles % 4 === 0 ? "long" : "short";
+    get().toast(
+      early ? `Foco finalizado: ${minutes} min salvos · +${minutes} XP` : `Foco concluído! +${minutes} XP · hora do descanso`,
+      "success",
+      { kanji: "禅" },
+    );
+    set({ pomodoro: { ...p, cycles } });
+    get().pomoReset(next);
+  };
+
   // Recalcula XP/estatísticas pouco depois de uma sequência de mudanças.
   const bumpStats = () => {
     clearTimeout(statsTimer);
@@ -375,24 +404,25 @@ export const useStore = create<State>((set, get) => {
       set({ pomodoro: { ...p, mode: m, running: false, endsAt: null, remaining: duration, duration, startedAt: null } });
     },
 
+    pomoFinish: () => {
+      const p = get().pomodoro;
+      if (p.mode !== "focus") return get().pomoReset("focus");
+      const minutes = Math.round(pomoElapsedMs(p) / 60_000);
+      if (minutes < 1) {
+        get().toast("Menos de 1 minuto de foco — nada foi registrado", "info", { kanji: "無" });
+        return get().pomoReset("focus");
+      }
+      if (get().prefs.sound) playFurin();
+      completeFocus(minutes, true);
+    },
+
     pomoTick: () => {
       const p = get().pomodoro;
       if (!p.running || !p.endsAt || Date.now() < p.endsAt) return;
       const { prefs } = get();
       if (prefs.sound) playFurin();
       if (p.mode === "focus") {
-        const minutes = Math.round(p.duration / 60_000);
-        api("/focus", {
-          method: "POST",
-          body: { minutes, project_id: p.projectId, task_id: p.taskId, label: p.label, started_at: p.startedAt },
-        })
-          .then(() => bumpStats())
-          .catch(fail);
-        const cycles = p.cycles + 1;
-        const next: PomodoroMode = cycles % 4 === 0 ? "long" : "short";
-        get().toast(`Foco concluído! +${minutes} XP · hora do descanso`, "success", { kanji: "禅" });
-        set({ pomodoro: { ...p, cycles } });
-        get().pomoReset(next);
+        completeFocus(Math.round(p.duration / 60_000), false);
       } else {
         get().toast("Pausa encerrada — bora voltar!", "info", { kanji: "戻" });
         get().pomoReset("focus");

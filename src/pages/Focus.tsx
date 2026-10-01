@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
-import { Pause, Play, RotateCcw, SkipForward } from "lucide-react";
+import { Check, Pause, Play, RotateCcw, SkipForward } from "lucide-react";
 import type { FocusSession } from "@shared/types";
 import { api } from "../api";
-import { useStore, type PomodoroMode } from "../store";
+import { pomoElapsedMs, useStore, type PomodoroMode } from "../store";
 import { formatMinutes, timeAgo, todayKey, addDays, toKey } from "../lib/dates";
 import { useTick } from "../lib/hooks";
 import { formatClock } from "../components/Layout";
@@ -22,7 +22,7 @@ export function Focus() {
   const projects = useStore((s) => s.projects);
   const tasks = useStore((s) => s.tasks);
   const stats = useStore((s) => s.stats);
-  const { pomoStart, pomoPause, pomoReset, pomoSet } = useStore.getState();
+  const { pomoStart, pomoPause, pomoReset, pomoSet, pomoFinish } = useStore.getState();
   const [sessions, setSessions] = useState<FocusSession[]>([]);
   useTick(p.running, 250);
 
@@ -31,6 +31,13 @@ export function Focus() {
   }, [stats]);
 
   const remaining = p.running && p.endsAt ? Math.max(0, p.endsAt - Date.now()) : p.remaining;
+  const elapsedMin = Math.round(pomoElapsedMs(p) / 60_000);
+  const inProgress = p.mode === "focus" && (p.running || p.remaining < p.duration);
+
+  const reset = () => {
+    if (p.mode === "focus" && elapsedMin >= 1 && !window.confirm(`Descartar ${elapsedMin} min de foco? (Use "Finalizar" para salvar.)`)) return;
+    pomoReset();
+  };
   const pct = 1 - remaining / p.duration;
   const size = 320;
   const r = 140;
@@ -107,23 +114,27 @@ export function Focus() {
           </div>
 
           <div className="timer-controls">
-            <button className="icon-btn lg" onClick={() => pomoReset()} title="Reiniciar">
+            <button className="icon-btn lg" onClick={reset} title="Reiniciar (descarta o tempo)">
               <RotateCcw size={20} />
             </button>
             <button className="play-btn" onClick={p.running ? pomoPause : start} aria-label={p.running ? "Pausar" : "Iniciar"}>
               {p.running ? <Pause size={30} /> : <Play size={30} />}
             </button>
-            <button
-              className="icon-btn lg"
-              title="Pular"
-              onClick={() => {
-                const next = p.mode === "focus" ? "short" : "focus";
-                pomoReset(next);
-              }}
-            >
-              <SkipForward size={20} />
-            </button>
+            {p.mode === "focus" ? (
+              <button className="icon-btn lg" title="Finalizar e salvar o tempo focado" onClick={pomoFinish} disabled={!inProgress}>
+                <Check size={20} />
+              </button>
+            ) : (
+              <button className="icon-btn lg" title="Pular pausa" onClick={() => pomoReset("focus")}>
+                <SkipForward size={20} />
+              </button>
+            )}
           </div>
+          {inProgress && (
+            <button className="finish-link" onClick={pomoFinish}>
+              Finalizar agora · salvar {elapsedMin} min
+            </button>
+          )}
 
           <div className="focus-target">
             <select
