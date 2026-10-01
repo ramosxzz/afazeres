@@ -1,4 +1,4 @@
-import { type ReactNode } from "react";
+import { useEffect, useRef, type ReactNode } from "react";
 import { Link, useLocation } from "wouter";
 import {
   BookOpen, Check, CheckSquare, FolderKanban, Home, Pause, Play, Plus, Search, Settings, Timer, Trophy,
@@ -87,6 +87,12 @@ function LevelCard() {
 
 export function Layout({ children }: { children: ReactNode }) {
   const [loc] = useLocation();
+  const mainRef = useRef<HTMLDivElement>(null);
+  // ao trocar de página, volta pro topo (o conteúdo tem rolagem própria)
+  useEffect(() => {
+    mainRef.current?.scrollTo(0, 0);
+    window.scrollTo(0, 0);
+  }, [loc]);
   const set = useStore((s) => s.set);
   const openTasks = useStore((s) => {
     const today = todayKey();
@@ -137,7 +143,7 @@ export function Layout({ children }: { children: ReactNode }) {
         </div>
       </aside>
 
-      <div className="main">
+      <div className="main" ref={mainRef}>
         <div className="topbar">
           <button className="search-trigger" onClick={() => set({ paletteOpen: true })}>
             <Search size={16} />

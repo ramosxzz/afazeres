@@ -76,8 +76,10 @@ export function Projects() {
     );
   }, [projects, q, type, priority, statusFilter, showArchived, view]);
 
+  const boardMode = view === "board" && projects.length > 0;
+
   return (
-    <div className="page">
+    <div className={`page ${boardMode ? "page-board" : ""}`}>
       <PageHeader
         kanji="巻物"
         romaji="makimono"

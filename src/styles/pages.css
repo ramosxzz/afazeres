@@ -161,13 +161,15 @@
 /* ═════════════ Kanban ═════════════ */
 
 .board {
+  min-height: 0;
+  flex: 1;
   display: grid;
   grid-auto-flow: column;
   grid-auto-columns: minmax(212px, 1fr);
   gap: 12px;
   overflow-x: auto;
   padding-bottom: 16px;
-  align-items: start;
+  align-items: stretch;
   scroll-snap-type: x proximity;
 }
 .column-lane {
@@ -176,7 +178,7 @@
   flex-direction: column;
   border-radius: var(--radius-lg);
   background: transparent;
-  min-height: 300px;
+  min-height: 0;
   scroll-snap-align: start;
   transition: background 0.15s;
 }
@@ -219,12 +221,14 @@
   font-variant-numeric: tabular-nums;
 }
 .lane-body {
+  overscroll-behavior: contain;
+  overflow-y: auto;
   display: flex;
   flex-direction: column;
   gap: 8px;
-  padding: 0;
+  padding: 0 2px 8px 0;
   flex: 1;
-  min-height: 120px;
+  min-height: 0;
 }
 .lane-empty {
   padding: 22px 10px;
@@ -1842,4 +1846,25 @@
 .mini-pomo-actions {
   display: flex;
   gap: 2px;
+}
+
+/* Kanban ocupa a altura da tela; cada coluna rola sozinha com o título fixo */
+.page-board {
+  height: calc(100dvh - 96px);
+  min-height: 460px;
+}
+.content:has(.page-board) {
+  padding-bottom: 24px;
+}
+@media (max-width: 720px) {
+  .page-board {
+    height: auto;
+    min-height: 0;
+  }
+  .board {
+    align-items: start;
+  }
+  .lane-body {
+    overflow: visible;
+  }
 }
