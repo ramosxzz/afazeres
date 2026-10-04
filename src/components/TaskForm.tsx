@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Trash2 } from "lucide-react";
+import { Check, ExternalLink, Trash2 } from "lucide-react";
 import { PRIORITIES, TASK_KINDS, TASK_STATUSES, type TaskInput } from "@shared/types";
 import { useStore } from "../store";
 import { KIND_META, PRIORITY_META } from "../lib/constants";
@@ -87,6 +87,29 @@ export function TaskFormModal() {
           if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) void submit();
         }}
       >
+        {task && (task.source || task.needs_review) ? (
+          <div className="task-origin">
+            {task.source && <span>Veio de {task.source}</span>}
+            {task.external_url && (
+              <a href={task.external_url} target="_blank" rel="noopener noreferrer" className="ext-link">
+                <ExternalLink size={12} /> abrir original
+              </a>
+            )}
+            {task.needs_review ? (
+              <button
+                type="button"
+                className="chip-btn"
+                onClick={() => {
+                  void updateTask(task.id, { needs_review: 0 });
+                  set({ taskForm: { open: true, task: { ...task, needs_review: 0 } } });
+                }}
+              >
+                <Check size={12} /> Aprovar
+              </button>
+            ) : null}
+          </div>
+        ) : null}
+
         <input className="input-hero" autoFocus placeholder="O que precisa ser feito?" value={form.title ?? ""} onChange={(e) => up({ title: e.target.value })} />
 
         <div className="form-row">

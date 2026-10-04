@@ -17,7 +17,7 @@ import {
   type Stats,
   type Task,
 } from "../shared/types";
-import { clearSessionCookie, createSessionCookie, isAuthenticated, passwordMatches } from "./auth";
+import { clearSessionCookie, createSessionCookie, hexEquals, isAuthenticated, passwordMatches, sha256Hex } from "./auth";
 import { ensureSchema, logActivity, now, uid } from "./db";
 
 interface Env {
@@ -27,6 +27,8 @@ interface Env {
   GITHUB_TOKEN?: string;
   /** opcional: outra URL da API (GitHub Enterprise ou testes locais) */
   GITHUB_API_URL?: string;
+  /** opcional: token para /api/ingest (além do hash salvo em settings.ingest_token_sha256) */
+  INGEST_TOKEN?: string;
 }
 
 type AppCtx = Context<{ Bindings: Env }>;
@@ -151,7 +153,29 @@ const taskFields: Record<string, (v: unknown) => unknown> = {
   priority: (v) => oneOf(PRIORITIES, v, "priority"),
   due_date: (v) => dateOrNull(v, "due_date"),
   position: (v) => num(v, "position"),
+  needs_review: (v) => (v ? 1 : 0),
 };
+
+// Só na criação (ex.: "desfazer" ao apagar uma tarefa importada mantém a origem).
+const taskCreateOnlyFields: Record<string, (v: unknown) => unknown> = {
+  source: (v) => (v ? sourceName(v) : null),
+  external_id: (v) => (v ? externalId(v) : null),
+  external_url: (v) => (v ? url(v, "external_url") || null : null),
+};
+
+/** settings que nunca saem do servidor nem podem ser trocadas pelo app */
+const isPrivateSetting = (k: string) => k.startsWith("ingest_");
+
+function sourceName(v: unknown): string {
+  if (typeof v === "string" && /^[a-z0-9_-]{1,32}$/.test(v)) return v;
+  throw new BadRequest('Campo "source" inválido (use a-z, 0-9, _ ou -)');
+}
+
+function externalId(v: unknown): string {
+  const s = typeof v === "number" ? String(v) : str(v, "external_id", 300).trim();
+  if (!s || s.length > 200) throw new BadRequest('Campo "external_id" obrigatório (até 200 caracteres)');
+  return s;
+}
 
 const journalFields: Record<string, (v: unknown) => unknown> = {
   date: (v) => {
@@ -205,6 +229,13 @@ app.use("*", async (c, next) => {
   await ensureSchema(c.env.DB);
   const path = new URL(c.req.url).pathname;
   if (path === "/api/auth/login" || path === "/api/health") return next();
+  if (path.startsWith("/api/ingest/")) {
+    if (!(await ingestAuthorized(c))) {
+      await new Promise((r) => setTimeout(r, 300));
+      return c.json({ error: "Token de ingest ausente ou inválido", code: "ingest_unauthorized" }, 401);
+    }
+    return next();
+  }
   if (!(await isAuthenticated(c.req.header("cookie") ?? null, c.env.APP_PASSWORD))) {
     return c.json({ error: "Não autenticado" }, 401);
   }
@@ -234,6 +265,9 @@ app.get("/auth/me", (c) => c.json({ ok: true }));
 
 // ───────────────────────── bootstrap ─────────────────────────
 
+const publicSettings = (rows: { key: string; value: string }[]) =>
+  Object.fromEntries(rows.filter((s) => !isPrivateSetting(s.key)).map((s) => [s.key, s.value]));
+
 app.get("/bootstrap", async (c) => {
   const db = c.env.DB;
   const [projects, tasks, settings] = await db.batch([
@@ -244,7 +278,7 @@ app.get("/bootstrap", async (c) => {
   return c.json({
     projects: (projects.results as Row[]).map(toProject),
     tasks: tasks.results as unknown as Task[],
-    settings: Object.fromEntries((settings.results as { key: string; value: string }[]).map((s) => [s.key, s.value])),
+    settings: publicSettings(settings.results as { key: string; value: string }[]),
   });
 });
 
@@ -323,8 +357,10 @@ app.delete("/projects/:id", async (c) => {
 
 app.post("/tasks", async (c) => {
   const db = c.env.DB;
-  const input = pick(await body(c), taskFields);
+  const b = await body(c);
+  const input = { ...pick(b, taskFields), ...pick(b, taskCreateOnlyFields) };
   if (!input.title) throw new BadRequest("A tarefa precisa de um título");
+  if (!input.source || !input.external_id) input.external_id = null;
   const t = now();
   const max = await db.prepare("SELECT MAX(position) AS p FROM tasks").first<{ p: number | null }>();
   const row = {
@@ -336,6 +372,12 @@ app.post("/tasks", async (c) => {
     updated_at: t,
   };
   await insertRow(db, "tasks", row);
+  if (input.external_id) {
+    await db
+      .prepare("DELETE FROM ingest_ignored WHERE source = ? AND external_id = ?")
+      .bind(input.source, input.external_id)
+      .run();
+  }
   const saved = await db.prepare("SELECT * FROM tasks WHERE id = ?").bind(row.id).first<Task>();
   return c.json(saved, 201);
 });
@@ -361,6 +403,17 @@ app.patch("/tasks/:id", async (c) => {
 
 app.delete("/tasks/:id", async (c) => {
   const db = c.env.DB;
+  const ext = await db
+    .prepare("SELECT source, external_id FROM tasks WHERE id = ?")
+    .bind(c.req.param("id"))
+    .first<{ source: string | null; external_id: string | null }>();
+  if (ext?.source && ext.external_id) {
+    // apagou uma tarefa importada: o próximo ingest não deve recriá-la
+    await db
+      .prepare("INSERT OR IGNORE INTO ingest_ignored (source, external_id, created_at) VALUES (?, ?, ?)")
+      .bind(ext.source, ext.external_id, now())
+      .run();
+  }
   await db.batch([
     db.prepare("UPDATE focus_sessions SET task_id = NULL WHERE task_id = ?").bind(c.req.param("id")),
     db.prepare("DELETE FROM tasks WHERE id = ?").bind(c.req.param("id")),
@@ -531,7 +584,7 @@ app.put("/settings", async (c) => {
   const db = c.env.DB;
   const b = await body(c);
   const entries = Object.entries(b)
-    .filter(([k]) => /^[a-z_]{1,40}$/.test(k))
+    .filter(([k]) => /^[a-z_]{1,40}$/.test(k) && !isPrivateSetting(k))
     .slice(0, 50);
   if (entries.length) {
     await db.batch(
@@ -564,7 +617,7 @@ app.get("/export", async (c) => {
     tasks: tasks.results as unknown as Task[],
     journal: journal.results as unknown as JournalEntry[],
     focus: focus.results as unknown as FocusSession[],
-    settings: Object.fromEntries((settings.results as { key: string; value: string }[]).map((s) => [s.key, s.value])),
+    settings: publicSettings(settings.results as { key: string; value: string }[]),
   };
   return c.json(file);
 });
@@ -577,7 +630,7 @@ const COLUMNS = {
   ],
   tasks: [
     "id", "project_id", "title", "notes", "status", "kind", "priority", "due_date", "position", "completed_at",
-    "created_at", "updated_at",
+    "created_at", "updated_at", "source", "external_id", "external_url", "needs_review",
   ],
   journal: ["id", "date", "mood", "content", "created_at", "updated_at"],
   focus_sessions: ["id", "project_id", "task_id", "minutes", "label", "started_at", "ended_at"],
@@ -601,7 +654,7 @@ app.post("/import", async (c) => {
       const values = cols.map((k) => {
         const v = r[k];
         if (k === "stack") return JSON.stringify(Array.isArray(v) ? v : safeJson(String(v ?? "[]"), []));
-        if (k === "pinned") return v ? 1 : 0;
+        if (k === "pinned" || k === "needs_review") return v ? 1 : 0;
         return v ?? null;
       });
       stmts.push(
@@ -614,6 +667,7 @@ app.post("/import", async (c) => {
   push("journal", file.journal as unknown as Row[]);
   push("focus_sessions", file.focus as unknown as Row[]);
   for (const [k, v] of Object.entries(file.settings ?? {})) {
+    if (isPrivateSetting(k)) continue;
     stmts.push(
       db.prepare("INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value").bind(k, String(v)),
     );
@@ -801,6 +855,379 @@ app.get("/github/repo", async (c) => {
     last_commit,
   };
   return c.json(detail);
+});
+
+// ───────────────────────── ingest (assistente / automações) ─────────────────────────
+// Autenticação: Authorization: Bearer <token>. Vale o token cujo SHA-256 está em
+// settings.ingest_token_sha256 (gerado fora do app) ou o segredo INGEST_TOKEN do Worker.
+
+const INGEST_HASH_KEY = "ingest_token_sha256";
+const INGEST_MAX_ITEMS = 100;
+const INGEST_MAX_BYTES = 512 * 1024;
+
+async function ingestAuthorized(c: AppCtx): Promise<boolean> {
+  const m = /^Bearer\s+(\S{16,512})$/i.exec((c.req.header("authorization") ?? "").trim());
+  if (!m) return false;
+  const token = m[1];
+  let ok = false;
+  const row = await c.env.DB.prepare("SELECT value FROM settings WHERE key = ?")
+    .bind(INGEST_HASH_KEY)
+    .first<{ value: string }>();
+  const stored = row?.value.trim().toLowerCase() ?? "";
+  if (/^[0-9a-f]{64}$/.test(stored)) ok = hexEquals(await sha256Hex(token), stored);
+  const envToken = c.env.INGEST_TOKEN?.trim();
+  if (envToken && (await passwordMatches(token, envToken))) ok = true;
+  return ok;
+}
+
+async function ingestItems(c: AppCtx): Promise<Record<string, unknown>[]> {
+  const len = Number(c.req.header("content-length") ?? 0);
+  if (len > INGEST_MAX_BYTES) throw new BadRequest(`Corpo grande demais (máx. ${INGEST_MAX_BYTES / 1024} KB)`);
+  let raw: unknown;
+  try {
+    raw = await c.req.json();
+  } catch {
+    throw new BadRequest("JSON inválido");
+  }
+  const list = Array.isArray(raw) ? raw : (raw as { items?: unknown } | null)?.items;
+  if (!Array.isArray(list)) throw new BadRequest('Envie uma lista de itens (ou { "items": [...] })');
+  if (list.length > INGEST_MAX_ITEMS) throw new BadRequest(`No máximo ${INGEST_MAX_ITEMS} itens por requisição`);
+  return list.map((x) => (x && typeof x === "object" && !Array.isArray(x) ? (x as Record<string, unknown>) : {}));
+}
+
+/** github.com/Dono/Repo.git/ → github.com/dono/repo */
+function normRepo(u: unknown): string {
+  return String(u ?? "")
+    .trim()
+    .toLowerCase()
+    .replace(/^https?:\/\//, "")
+    .replace(/^www\./, "")
+    .replace(/\/+$/, "")
+    .replace(/\.git$/, "")
+    .replace(/\/+$/, "");
+}
+
+const normName = (v: unknown) =>
+  String(v ?? "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .trim()
+    .toLowerCase();
+
+type ProjectRef = { id: string; name: string; client: string; repo_url: string };
+
+/** Acha o projeto por id → repo_url → nome → cliente. undefined = sem pista; null = pista sem projeto. */
+function resolveProject(projects: ProjectRef[], it: Record<string, unknown>): ProjectRef | null | undefined {
+  const { project_id, project_repo_url, project_name, client } = it;
+  if (!project_id && !project_repo_url && !project_name && !client) return undefined;
+  if (project_id) {
+    const p = projects.find((x) => x.id === project_id);
+    if (p) return p;
+  }
+  if (project_repo_url) {
+    const r = normRepo(project_repo_url);
+    const p = r ? projects.find((x) => x.repo_url && normRepo(x.repo_url) === r) : undefined;
+    if (p) return p;
+  }
+  if (project_name) {
+    const n = normName(project_name);
+    const p = projects.find((x) => normName(x.name) === n);
+    if (p) return p;
+  }
+  if (client) {
+    const n = normName(client);
+    const hits = projects.filter((x) => normName(x.client) === n);
+    if (hits.length === 1) return hits[0];
+  }
+  return null;
+}
+
+/** SELECT ... WHERE col IN (...) em blocos (o D1 aceita até 100 parâmetros). */
+async function selectIn<T>(db: D1Database, sql: (marks: string) => string, fixed: unknown[], values: string[]): Promise<T[]> {
+  const out: T[] = [];
+  for (let i = 0; i < values.length; i += 90) {
+    const chunk = values.slice(i, i + 90);
+    const { results } = await db
+      .prepare(sql(chunk.map(() => "?").join(", ")))
+      .bind(...fixed, ...chunk)
+      .all<T>();
+    out.push(...results);
+  }
+  return out;
+}
+
+type IngestResult = {
+  index: number;
+  source?: string;
+  external_id?: string;
+  action: "created" | "updated" | "unchanged" | "ignored" | "error";
+  id?: string;
+  error?: string;
+  warnings?: string[];
+};
+
+app.post("/ingest/tasks", async (c) => {
+  const db = c.env.DB;
+  const items = await ingestItems(c);
+  const t = now();
+  const [projectsRes, maxRes] = await db.batch([
+    db.prepare("SELECT id, name, client, repo_url FROM projects"),
+    db.prepare("SELECT MAX(position) AS p FROM tasks"),
+  ]);
+  const projects = projectsRes.results as ProjectRef[];
+  let position = ((maxRes.results[0] as { p: number | null } | undefined)?.p ?? 0) + 1;
+
+  // 1) valida tudo antes de tocar no banco
+  type Parsed = {
+    index: number;
+    source: string;
+    external_id: string;
+    fields: Record<string, unknown>;
+    project: ProjectRef | null | undefined;
+    needsReview: boolean | undefined;
+    completedAt: string | null;
+    warnings: string[];
+  };
+  const results: IngestResult[] = [];
+  const parsed: Parsed[] = [];
+  const seen = new Set<string>();
+  items.forEach((it, index) => {
+    try {
+      const source = sourceName(it.source);
+      const external_id = externalId(it.external_id);
+      const key = `${source}\u0000${external_id}`;
+      if (seen.has(key)) throw new BadRequest("Item repetido na mesma requisição");
+      seen.add(key);
+      const fields = pick(it, {
+        title: taskFields.title,
+        notes: taskFields.notes,
+        status: taskFields.status,
+        kind: taskFields.kind,
+        priority: taskFields.priority,
+        due_date: taskFields.due_date,
+        external_url: taskCreateOnlyFields.external_url,
+      });
+      const warnings: string[] = [];
+      const project = resolveProject(projects, it);
+      if (project === null) warnings.push("projeto não encontrado; tarefa fica sem projeto");
+      parsed.push({
+        index,
+        source,
+        external_id,
+        fields,
+        project,
+        needsReview: "needs_review" in it ? Boolean(it.needs_review) : undefined,
+        completedAt: dateOrNull(it.completed_at, "completed_at"),
+        warnings,
+      });
+    } catch (e) {
+      if (!(e instanceof BadRequest)) throw e;
+      results.push({ index, action: "error", error: e.message });
+    }
+  });
+
+  // 2) carrega o que já existe (e o que foi apagado de propósito)
+  const bySource = new Map<string, string[]>();
+  for (const p of parsed) bySource.set(p.source, [...(bySource.get(p.source) ?? []), p.external_id]);
+  const existing = new Map<string, Task>();
+  const ignored = new Set<string>();
+  for (const [source, ids] of bySource) {
+    const rows = await selectIn<Task>(db, (m) => `SELECT * FROM tasks WHERE source = ? AND external_id IN (${m})`, [source], ids);
+    for (const r of rows) existing.set(`${source}\u0000${r.external_id}`, r);
+    const ign = await selectIn<{ external_id: string }>(
+      db,
+      (m) => `SELECT external_id FROM ingest_ignored WHERE source = ? AND external_id IN (${m})`,
+      [source],
+      ids,
+    );
+    for (const r of ign) ignored.add(`${source}\u0000${r.external_id}`);
+  }
+
+  // 3) monta as escritas e roda tudo num batch só
+  const stmts: D1PreparedStatement[] = [];
+  const activity = (title: string, projectId: string | null, id: string) =>
+    db
+      .prepare("INSERT INTO activity (id, type, project_id, entity_id, message, created_at) VALUES (?, ?, ?, ?, ?, ?)")
+      .bind(uid(), "task_done", projectId, id, `Concluiu: ${title}`, t);
+
+  for (const p of parsed) {
+    const key = `${p.source}\u0000${p.external_id}`;
+    const cur = existing.get(key);
+    const base = { index: p.index, source: p.source, external_id: p.external_id, warnings: p.warnings.length ? p.warnings : undefined };
+    if (!cur) {
+      if (ignored.has(key)) {
+        results.push({ ...base, action: "ignored", error: "apagada manualmente antes; não recriada" });
+        continue;
+      }
+      if (!p.fields.title) {
+        results.push({ ...base, action: "error", error: "A tarefa precisa de um título" });
+        continue;
+      }
+      const status = (p.fields.status as string) ?? "todo";
+      const row: Record<string, unknown> = {
+        id: uid(),
+        project_id: p.project?.id ?? null,
+        notes: "",
+        kind: "feature",
+        priority: "medium",
+        position: position++,
+        ...p.fields,
+        status,
+        source: p.source,
+        external_id: p.external_id,
+        needs_review: p.needsReview ? 1 : 0,
+        completed_at: status === "done" ? (p.completedAt ?? t) : null,
+        created_at: t,
+        updated_at: t,
+      };
+      const keys = Object.keys(row);
+      stmts.push(
+        db
+          .prepare(`INSERT INTO tasks (${keys.join(", ")}) VALUES (${keys.map(() => "?").join(", ")})`)
+          .bind(...keys.map((k) => row[k] ?? null)),
+      );
+      results.push({ ...base, action: "created", id: row.id as string });
+      continue;
+    }
+
+    // atualização: só o que veio no item e mudou de fato
+    const patch: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(p.fields)) {
+      if ((cur as unknown as Row)[k] !== v) patch[k] = v;
+    }
+    if (p.project && p.project.id !== cur.project_id) patch.project_id = p.project.id;
+    // needs_review=true não volta a marcar uma tarefa já aprovada; false limpa
+    if (p.needsReview === false && cur.needs_review) patch.needs_review = 0;
+    if (patch.status && patch.status !== cur.status) {
+      if (patch.status === "done") {
+        patch.completed_at = p.completedAt ?? t;
+        stmts.push(activity((patch.title as string) ?? cur.title, (patch.project_id as string) ?? cur.project_id, cur.id));
+      } else if (cur.status === "done") {
+        patch.completed_at = null;
+      }
+    }
+    if (!Object.keys(patch).length) {
+      results.push({ ...base, action: "unchanged", id: cur.id });
+      continue;
+    }
+    patch.updated_at = t;
+    const keys = Object.keys(patch);
+    stmts.push(
+      db
+        .prepare(`UPDATE tasks SET ${keys.map((k) => `${k} = ?`).join(", ")} WHERE id = ?`)
+        .bind(...keys.map((k) => patch[k] ?? null), cur.id),
+    );
+    results.push({ ...base, action: "updated", id: cur.id });
+  }
+
+  if (stmts.length) await db.batch(stmts); // transação: tudo ou nada
+  const counts = { created: 0, updated: 0, unchanged: 0, ignored: 0, error: 0 };
+  for (const r of results) counts[r.action]++;
+  results.sort((a, b) => a.index - b.index);
+  return c.json({ ok: counts.error === 0, counts, results });
+});
+
+app.post("/ingest/projects", async (c) => {
+  const db = c.env.DB;
+  const items = await ingestItems(c);
+  if (items.length > 50) throw new BadRequest("No máximo 50 projetos por requisição");
+  const { results: rows } = await db.prepare("SELECT * FROM projects").all<Row>();
+  const out: { index: number; action: "created" | "updated" | "unchanged" | "error"; id?: string; name?: string; error?: string }[] = [];
+  for (const [index, it] of items.entries()) {
+    try {
+      const input = pick(it, projectFields);
+      const repo = normRepo(input.repo_url);
+      const name = normName(input.name);
+      const cur =
+        (it.id ? rows.find((r) => r.id === it.id) : undefined) ??
+        (repo ? rows.find((r) => r.repo_url && normRepo(r.repo_url) === repo) : undefined) ??
+        (name ? rows.find((r) => normName(r.name) === name) : undefined);
+      const t = now();
+      if (!cur) {
+        if (!input.name) throw new BadRequest("O projeto precisa de um nome");
+        const status = (input.status as string) ?? "idea";
+        const sameStatus = rows.filter((r) => r.status === status).map((r) => Number(r.position) || 0);
+        const row: Record<string, unknown> = {
+          id: uid(),
+          status,
+          position: (sameStatus.length ? Math.min(...sameStatus) : 1000) - 1,
+          ...input,
+          finished_at: status === "done" ? t : null,
+          created_at: t,
+          updated_at: t,
+        };
+        await insertRow(db, "projects", row);
+        await logActivity(db, "project_created", `Novo projeto: ${input.name as string}`, row.id as string, row.id as string);
+        rows.push(row);
+        out.push({ index, action: "created", id: row.id as string, name: input.name as string });
+        continue;
+      }
+      const patch: Record<string, unknown> = {};
+      for (const [k, v] of Object.entries(input)) if (cur[k] !== v) patch[k] = v;
+      if (patch.name && normName(patch.name) === normName(cur.name)) delete patch.name; // achou pelo nome: não troca a grafia
+      if (patch.status) {
+        if (patch.status === "done") patch.finished_at = t;
+        else if (cur.status === "done") patch.finished_at = null;
+        await logActivity(
+          db,
+          patch.status === "done" ? "project_done" : "project_status",
+          patch.status === "done"
+            ? `Projeto finalizado: ${cur.name as string} 🎉`
+            : `${cur.name as string} → ${STATUS_LABEL[patch.status as string]}`,
+          cur.id as string,
+          cur.id as string,
+        );
+      }
+      if (!Object.keys(patch).length) {
+        out.push({ index, action: "unchanged", id: cur.id as string, name: cur.name as string });
+        continue;
+      }
+      await updateRow(db, "projects", cur.id as string, { ...patch, updated_at: t });
+      Object.assign(cur, patch);
+      out.push({ index, action: "updated", id: cur.id as string, name: cur.name as string });
+    } catch (e) {
+      if (!(e instanceof BadRequest)) throw e;
+      out.push({ index, action: "error", error: e.message });
+    }
+  }
+  return c.json({ ok: out.every((r) => r.action !== "error"), results: out });
+});
+
+/** Visão compacta para o assistente: projetos e tarefas (abertas, ou todas com ?all=1). */
+app.get("/ingest/summary", async (c) => {
+  const db = c.env.DB;
+  const all = c.req.query("all") === "1";
+  const source = c.req.query("source");
+  const where: string[] = [];
+  const params: string[] = [];
+  if (!all) where.push("status != 'done'");
+  if (source) {
+    where.push("source = ?");
+    params.push(sourceName(source));
+  }
+  const [projects, tasks, counts] = await db.batch([
+    db.prepare(
+      "SELECT id, name, status, type, priority, client, repo_url, live_url, progress, due_date, updated_at FROM projects ORDER BY status, name",
+    ),
+    db
+      .prepare(
+        `SELECT id, project_id, title, status, kind, priority, due_date, source, external_id, external_url, needs_review,
+                completed_at, created_at, updated_at
+         FROM tasks ${where.length ? `WHERE ${where.join(" AND ")}` : ""} ORDER BY created_at DESC LIMIT 1000`,
+      )
+      .bind(...params),
+    db.prepare(
+      `SELECT COALESCE(source, 'manual') AS source, status, COUNT(*) AS n,
+              SUM(CASE WHEN needs_review = 1 THEN 1 ELSE 0 END) AS needs_review
+       FROM tasks GROUP BY 1, 2 ORDER BY 1, 2`,
+    ),
+  ]);
+  return c.json({
+    generated_at: now(),
+    projects: projects.results,
+    tasks: tasks.results,
+    counts: counts.results,
+  });
 });
 
 app.all("*", (c) => c.json({ error: "Rota não encontrada" }, 404));

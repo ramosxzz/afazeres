@@ -55,3 +55,15 @@ export async function isAuthenticated(cookieHeader: string | null, secret: strin
   if (!exp || !sig || !/^[0-9a-f]{64}$/.test(sig) || exp < Date.now() / 1000) return false;
   return crypto.subtle.verify("HMAC", await hmacKey(secret), fromHex(sig), enc.encode(String(exp)));
 }
+
+export async function sha256Hex(input: string) {
+  return toHex(await crypto.subtle.digest("SHA-256", enc.encode(input)));
+}
+
+/** Compara duas strings hex de mesmo tamanho em tempo constante. */
+export function hexEquals(a: string, b: string) {
+  if (a.length !== b.length) return false;
+  let diff = 0;
+  for (let i = 0; i < a.length; i++) diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  return diff === 0;
+}

@@ -79,6 +79,25 @@ const MIGRATIONS: { id: number; name: string; statements: string[] }[] = [
       )`,
     ],
   },
+  {
+    // Tarefas que chegam de fora (GitHub, WhatsApp…) pela rota /api/ingest.
+    id: 2,
+    name: "ingest",
+    statements: [
+      `ALTER TABLE tasks ADD COLUMN source TEXT`,
+      `ALTER TABLE tasks ADD COLUMN external_id TEXT`,
+      `ALTER TABLE tasks ADD COLUMN external_url TEXT`,
+      `ALTER TABLE tasks ADD COLUMN needs_review INTEGER NOT NULL DEFAULT 0`,
+      `CREATE UNIQUE INDEX IF NOT EXISTS idx_tasks_external ON tasks(source, external_id) WHERE external_id IS NOT NULL`,
+      // tarefas importadas que foram apagadas à mão: o ingest não recria
+      `CREATE TABLE IF NOT EXISTS ingest_ignored (
+        source TEXT NOT NULL,
+        external_id TEXT NOT NULL,
+        created_at TEXT NOT NULL,
+        PRIMARY KEY (source, external_id)
+      )`,
+    ],
+  },
 ];
 
 let migrated = false;

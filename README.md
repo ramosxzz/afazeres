@@ -141,3 +141,21 @@ Para mudar o schema, adicione um item novo **no fim** da lista `MIGRATIONS` em `
 - **Tarefas recorrentes** (ex.: "renovar certificado" todo mês, "backup" toda sexta)
 - **Modo zen**: tela cheia só com o timer e a tarefa atual, com trilha lo-fi
 - **Calendário** com prazos de projetos e tarefas, e exportação `.ics`
+
+### 🤖 API de ingest (assistente / automações)
+
+Rotas para um assistente preencher o app sozinho. Usam `Authorization: Bearer <token>` (não o cookie). O Worker aceita o token cujo **SHA-256** está em `settings.ingest_token_sha256` no D1 (só o hash fica no banco; a chave nunca aparece no app nem no backup) ou o segredo opcional `INGEST_TOKEN`.
+
+| Rota | O que faz |
+|---|---|
+| `POST /api/ingest/tasks` | Upsert de até 100 tarefas por `(source, external_id)`. Campos: `source`, `external_id`, `title`, `notes?`, `kind?`, `priority?`, `status?`, `due_date?`, `external_url?`, `needs_review?`, `completed_at?` e o projeto por `project_id`, `project_repo_url`, `project_name` ou `client` (nessa ordem). Na atualização só muda o que veio no item. Concluir registra a atividade (XP/sequência) e reabrir limpa `completed_at`. `needs_review: true` só marca na criação. Tarefa importada que você apaga não volta |
+| `POST /api/ingest/projects` | Upsert de até 50 projetos (por `id`, `repo_url` ou nome) |
+| `GET /api/ingest/summary` | Projetos + tarefas abertas (`?all=1` inclui as concluídas, `?source=github` filtra) |
+
+```bash
+curl -X POST https://SEU-WORKER/api/ingest/tasks \
+  -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
+  -d '[{"source":"github","external_id":"ramosxzz/repo#12","title":"Corrigir login","kind":"bug","project_repo_url":"https://github.com/ramosxzz/repo"}]'
+```
+
+Tarefas criadas com `needs_review` aparecem com o selo **a revisar**. Um clique no ✓ aprova.

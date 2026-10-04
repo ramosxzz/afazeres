@@ -56,6 +56,13 @@ export interface Task {
   completed_at: string | null;
   created_at: string;
   updated_at: string;
+  /** origem quando veio de fora (ex.: "github", "whatsapp"); null = criada no app */
+  source?: string | null;
+  /** id na origem (ex.: "ramosxzz/repo#12" ou id da mensagem) */
+  external_id?: string | null;
+  external_url?: string | null;
+  /** 1 = criada automaticamente e ainda não revisada */
+  needs_review?: number;
 }
 
 export interface JournalEntry {

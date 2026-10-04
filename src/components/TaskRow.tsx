@@ -1,6 +1,6 @@
 import { memo } from "react";
 import { Link } from "wouter";
-import { Check, Pencil, Play, Timer } from "lucide-react";
+import { Check, ExternalLink, Pencil, Play, Timer } from "lucide-react";
 import type { Task } from "@shared/types";
 import { useStore } from "../store";
 import { DueBadge, KindBadge, PriorityBadge } from "./ui";
@@ -42,6 +42,26 @@ export const TaskRow = memo(function TaskRow({ task, showProject = true }: Props
           {task.due_date && <DueBadge date={task.due_date} done={done} />}
           {task.status === "doing" && <span className="doing-pill">fazendo</span>}
           {task.notes && <span className="has-notes" title="Tem notas">✎</span>}
+          {task.needs_review ? (
+            <span className="review-pill" title={`Criada automaticamente${task.source ? ` (${task.source})` : ""}. Confira e aprove.`}>
+              a revisar
+              <button className="review-ok" title="Aprovar (remove o selo)" onClick={() => void updateTask(task.id, { needs_review: 0 })}>
+                <Check size={11} strokeWidth={3} />
+              </button>
+            </span>
+          ) : null}
+          {task.external_url && (
+            <a
+              className="ext-link"
+              href={task.external_url}
+              target="_blank"
+              rel="noopener noreferrer"
+              title={`Abrir na origem${task.source ? ` (${task.source})` : ""}`}
+            >
+              <ExternalLink size={12} />
+              {task.source && <span>{task.source}</span>}
+            </a>
+          )}
         </div>
       </div>
       <div className="task-actions">
