@@ -111,6 +111,7 @@ export interface Stats {
     support_done: number;
     early_tasks: number;
     night_tasks: number;
+    commits: number;
   };
 }
 
@@ -173,4 +174,25 @@ export interface GithubRepoDetail {
   archived: boolean;
   pushed_at: string;
   last_commit: { sha: string; message: string; date: string; url: string; author: string } | null;
+}
+
+// ───────────── Automação ─────────────
+
+export interface SyncResult {
+  ok: boolean;
+  at: string;
+  message: string;
+  repos: number;
+  commits: number;
+  issues_created: number;
+  issues_closed: number;
+  projects_created: number;
+  status_changed: number;
+  errors: string[];
+}
+
+export interface AutomationStatus {
+  has_token: boolean;
+  last_sync: SyncResult | null;
+  last_journal: string | null;
 }

@@ -252,7 +252,7 @@ function TokenHint({ data }: { data: GithubRepoList }) {
           Em <b>Repository access</b>, troque &quot;Public repositories&quot; por <b>All repositories</b> (ou selecione os repos).
         </li>
         <li>
-          Em <b>Permissions → Repositories</b>, adicione <b>Contents: Read-only</b> e salve. Não precisa trocar o token no
+          Em <b>Permissions → Repositories</b>, adicione <b>Contents: Read-only</b> e <b>Issues: Read-only</b> e salve. Não precisa trocar o token no
           Cloudflare.
         </li>
         <li>Volte aqui e clique em Buscar.</li>

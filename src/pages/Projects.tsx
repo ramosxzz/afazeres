@@ -6,7 +6,7 @@ import {
 } from "@dnd-kit/core";
 import { SortableContext, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { Bug, Columns3, FolderGit2, LayoutGrid, List, Pin, Plus, Search } from "lucide-react";
+import { Bug, Columns3, FolderGit2, LayoutGrid, List, Loader2, Pin, Plus, RefreshCw, Search } from "lucide-react";
 import { PRIORITIES, PROJECT_TYPES, type Project, type ProjectStatus } from "@shared/types";
 import { useStore } from "../store";
 import { BOARD_STATUSES, PRIORITY_META, STATUS_META, TYPE_META } from "../lib/constants";
@@ -87,6 +87,7 @@ export function Projects() {
         subtitle={`${projects.filter((p) => p.status === "active").length} em andamento · ${projects.filter((p) => p.status === "support").length} em suporte · ${projects.filter((p) => p.status === "done").length} finalizados`}
         actions={
           <>
+            <SyncButton />
             <button className="btn btn-ghost" onClick={() => set({ githubOpen: true })}>
               <FolderGit2 size={16} /> <span className="hide-sm">Importar do GitHub</span>
             </button>
@@ -452,5 +453,22 @@ function ProjectTable({ projects }: { projects: Project[] }) {
         </tbody>
       </table>
     </div>
+  );
+}
+
+function SyncButton() {
+  const syncing = useStore((s) => s.syncing);
+  const syncNow = useStore((s) => s.syncNow);
+  const last = useStore((s) => s.automation?.last_sync?.at);
+  return (
+    <button
+      className="icon-btn"
+      title={`Sincronizar com o GitHub${last ? ` · última vez ${new Date(last).toLocaleString("pt-BR")}` : ""}`}
+      aria-label="Sincronizar com o GitHub"
+      disabled={syncing}
+      onClick={() => void syncNow()}
+    >
+      {syncing ? <Loader2 size={17} className="spin" /> : <RefreshCw size={17} />}
+    </button>
   );
 }

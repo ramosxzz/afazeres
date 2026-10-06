@@ -98,6 +98,22 @@ const MIGRATIONS: { id: number; name: string; statements: string[] }[] = [
       )`,
     ],
   },
+  {
+    // Automação (Cron): commits do GitHub viram atividade e o estado da sincronização fica salvo.
+    // As tarefas vindas de issues usam as colunas source/external_id da migração 2.
+    id: 3,
+    name: "automation",
+    statements: [
+      // atividade vinda de fora (ex.: commit "gh:dono/repo@sha"), para não duplicar
+      `ALTER TABLE activity ADD COLUMN external_id TEXT`,
+      `CREATE UNIQUE INDEX IF NOT EXISTS idx_activity_external ON activity(external_id) WHERE external_id IS NOT NULL`,
+      `CREATE INDEX IF NOT EXISTS idx_activity_type ON activity(type)`,
+      `CREATE TABLE IF NOT EXISTS sync_state (
+        key TEXT PRIMARY KEY,
+        value TEXT NOT NULL
+      )`,
+    ],
+  },
 ];
 
 let migrated = false;

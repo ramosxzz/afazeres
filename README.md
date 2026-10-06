@@ -115,10 +115,26 @@ Em **Projetos → Importar do GitHub** (ou `Ctrl K` → "Importar projetos do Gi
 Sem configurar nada, funciona com repositórios **públicos**, mas o GitHub limita a 60 consultas por hora por IP (e o IP do Worker é compartilhado). Por isso vale criar um token **somente leitura**:
 
 1. GitHub → **Settings → Developer settings → Personal access tokens → Fine-grained tokens → Generate new token**
-2. **Repository access:** *All repositories* · **Permissions → Repository:** *Contents: Read-only* (Metadata já vem junto)
+2. **Repository access:** *All repositories* · **Permissions → Repository:** *Contents: Read-only* e *Issues: Read-only* (Metadata já vem junto)
 3. Copie o token e salve no Cloudflare como **Secret** `GITHUB_TOKEN` (mesmo lugar do `APP_PASSWORD`)
 
 Com o token, a lista inclui seus repositórios privados e os das suas organizações. As respostas do GitHub ficam em cache por 5 minutos.
+
+### 🤖 Automação (o app se preenche sozinho)
+
+Com o `GITHUB_TOKEN` configurado, um **Cron Trigger** do Worker roda a cada 30 minutos (e o app também sincroniza ao ser aberto):
+
+| O que | Como |
+|---|---|
+| **Commits → atividade** | seus commits (sem merges) entram no mapa de calor, na sequência de dias e valem +2 XP. Na primeira vez, puxa os últimos 90 dias |
+| **Issues → tarefas** | issue aberta vira tarefa no projeto; tipo e prioridade pelas labels (`bug`, `high`, `urgent`…), prazo pelo milestone; issue fechada conclui a tarefa |
+| **Status automático** | push num projeto em Ideias/Pausado → Em andamento; 30 dias sem push *e* sem você mexer → Pausado; repo arquivado → Arquivado. Suporte e Finalizado nunca são alterados |
+| **Repositórios novos** | todo repositório novo (não fork) com push vira projeto em Em andamento |
+| **Diário automático** | depois das 23h do seu fuso, escreve o resumo do dia: commits por projeto, tarefas concluídas, foco e o que vence amanhã. O que você escreveu na página é mantido |
+
+Tudo pode ser ligado/desligado em **Configurações → Automação**, que também tem "Sincronizar agora" e "Gerar resumo de hoje" (também há botão de sincronizar em Projetos e "Resumo automático" no Diário).
+
+**Permissões do token** para a automação: *Contents: Read-only* e *Issues: Read-only* (fine-grained, All repositories).
 
 ### 🔒 Mais segurança (recomendado)
 

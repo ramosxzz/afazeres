@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import type { Project, ProjectInput, Stats, Task, TaskInput } from "@shared/types";
+import type { AutomationStatus, Project, ProjectInput, Stats, SyncResult, Task, TaskInput } from "@shared/types";
 import { api } from "./api";
 import { levelInfo } from "./lib/xp";
 import { playFurin, playPop, playTaiko } from "./lib/sound";
@@ -17,6 +17,12 @@ export interface Prefs {
   display_name: string;
   mascot_name: string;
   github_user: string;
+  auto_sync: boolean;
+  auto_commits: boolean;
+  auto_issues: boolean;
+  auto_status: boolean;
+  auto_import: boolean;
+  auto_journal: boolean;
 }
 
 const DEFAULT_PREFS: Prefs = {
@@ -29,6 +35,12 @@ const DEFAULT_PREFS: Prefs = {
   display_name: "ramosxzz",
   mascot_name: "Kon",
   github_user: "ramosxzz",
+  auto_sync: true,
+  auto_commits: true,
+  auto_issues: true,
+  auto_status: true,
+  auto_import: true,
+  auto_journal: true,
 };
 
 export interface Toast {
@@ -70,6 +82,8 @@ interface State {
   paletteOpen: boolean;
   helpOpen: boolean;
   githubOpen: boolean;
+  automation: AutomationStatus | null;
+  syncing: boolean;
   projectForm: { open: boolean; project?: Project; status?: Project["status"] };
   taskForm: { open: boolean; task?: Task; projectId?: string | null };
   pomodoro: Pomodoro;
@@ -77,6 +91,9 @@ interface State {
   setAuth: (a: State["auth"]) => void;
   load: () => Promise<void>;
   refreshStats: () => Promise<void>;
+  /** sincroniza com o GitHub agora; em modo silencioso só avisa se algo mudou */
+  syncNow: (silent?: boolean) => Promise<SyncResult | undefined>;
+  loadAutomation: () => Promise<void>;
   toast: (text: string, tone?: Toast["tone"], extra?: Partial<Toast>) => void;
   dismissToast: (id: number) => void;
   setPrefs: (p: Partial<Prefs>) => void;
@@ -193,6 +210,8 @@ export const useStore = create<State>((set, get) => {
     paletteOpen: false,
     helpOpen: false,
     githubOpen: false,
+    automation: null,
+    syncing: false,
     projectForm: { open: false },
     taskForm: { open: false },
     pomodoro: {
@@ -218,7 +237,45 @@ export const useStore = create<State>((set, get) => {
       set({ projects: data.projects, tasks: data.tasks, prefs, loaded: true, auth: "in" });
       const p = get().pomodoro;
       if (!p.running && p.remaining === p.duration) get().pomoReset(p.mode);
+      // o servidor precisa do fuso para o diário automático e o mapa de calor
+      const tz = String(new Date().getTimezoneOffset());
+      if (data.settings.tz_offset !== tz) api("/settings", { method: "PUT", body: { tz_offset: tz } }).catch(() => {});
       await get().refreshStats();
+      void get().loadAutomation().then(() => {
+        // se a última sincronização estiver velha, sincroniza em segundo plano ao abrir o app
+        const a = get().automation;
+        const last = a?.last_sync?.at ? Date.parse(a.last_sync.at) : 0;
+        if (a?.has_token && get().prefs.auto_sync && Date.now() - last > 20 * 60_000) void get().syncNow(true);
+      });
+    },
+
+    loadAutomation: async () => {
+      try {
+        set({ automation: await api<AutomationStatus>("/automation/status") });
+      } catch {
+        /* opcional */
+      }
+    },
+
+    syncNow: async (silent = false) => {
+      if (get().syncing) return;
+      set({ syncing: true });
+      try {
+        const r = await api<SyncResult>("/automation/sync", { method: "POST" });
+        const changed = r.commits + r.issues_created + r.issues_closed + r.projects_created + r.status_changed > 0;
+        if (changed) {
+          const data = await api<{ projects: Project[]; tasks: Task[] }>("/bootstrap");
+          set({ projects: data.projects, tasks: data.tasks });
+          await get().refreshStats();
+        }
+        if (!silent || changed) get().toast(`GitHub: ${r.message}`, r.ok ? "success" : "error", { kanji: "同" });
+        await get().loadAutomation();
+        return r;
+      } catch (e) {
+        if (!silent) fail(e);
+      } finally {
+        set({ syncing: false });
+      }
     },
 
     refreshStats: async () => {

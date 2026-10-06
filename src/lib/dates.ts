@@ -70,6 +70,12 @@ export function timeAgo(iso: string): string {
   return `${Math.floor(mo / 12)} ano${mo >= 24 ? "s" : ""}`;
 }
 
+/** "agora" ou "há 5 min" */
+export function ago(iso: string): string {
+  const t = timeAgo(iso);
+  return t === "agora" ? t : `há ${t}`;
+}
+
 export function greeting(): { jp: string; romaji: string; pt: string } {
   const h = new Date().getHours();
   if (h < 5) return { jp: "こんばんは", romaji: "konbanwa", pt: "Codando de madrugada?" };

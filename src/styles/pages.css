@@ -1868,3 +1868,27 @@
     overflow: visible;
   }
 }
+
+/* ═════════════ Automação ═════════════ */
+
+.auto-options {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding-left: 48px;
+  transition: opacity 0.15s;
+}
+.auto-options.disabled {
+  opacity: 0.45;
+}
+@media (max-width: 720px) {
+  .auto-options {
+    padding-left: 0;
+  }
+}
+.auto-errors {
+  margin: 4px 0 0;
+  padding-left: 18px;
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+}

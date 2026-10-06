@@ -54,6 +54,14 @@ export function CommandPalette() {
       { id: "new-task", group: "Ações", label: "Nova tarefa", hint: "N", icon: <ListPlus size={16} />, run: () => set({ taskForm: { open: true } }) },
       { id: "new-project", group: "Ações", label: "Novo projeto", hint: "P", icon: <FolderPlus size={16} />, run: () => set({ projectForm: { open: true } }) },
       {
+        id: "sync",
+        group: "Ações",
+        label: "Sincronizar com o GitHub agora",
+        icon: <FolderGit2 size={16} />,
+        keywords: "github sync sincronizar commits issues automatico",
+        run: () => void useStore.getState().syncNow(),
+      },
+      {
         id: "github",
         group: "Ações",
         label: "Importar projetos do GitHub",

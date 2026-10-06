@@ -37,4 +37,5 @@ export const XP_RULES = [
   { label: "Projeto finalizado", value: "150 XP" },
   { label: "Minuto de foco", value: "1 XP" },
   { label: "Entrada no diário", value: "15 XP" },
+  { label: "Commit no GitHub (automático)", value: "2 XP" },
 ];

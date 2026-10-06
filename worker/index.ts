@@ -19,17 +19,10 @@ import {
 } from "../shared/types";
 import { clearSessionCookie, createSessionCookie, hexEquals, isAuthenticated, passwordMatches, sha256Hex } from "./auth";
 import { ensureSchema, logActivity, now, uid } from "./db";
+import type { Env } from "./env";
+import { gh, GithubError, toRepo, type RawRepo } from "./github";
+import { automationStatus, runJournal, runScheduled, runSync } from "./automation";
 
-interface Env {
-  DB: D1Database;
-  APP_PASSWORD?: string;
-  /** opcional: token do GitHub (read-only) para ver repos privados e ter limite maior */
-  GITHUB_TOKEN?: string;
-  /** opcional: outra URL da API (GitHub Enterprise ou testes locais) */
-  GITHUB_API_URL?: string;
-  /** opcional: token para /api/ingest (além do hash salvo em settings.ingest_token_sha256) */
-  INGEST_TOKEN?: string;
-}
 
 type AppCtx = Context<{ Bindings: Env }>;
 
@@ -501,7 +494,7 @@ app.get("/stats", async (c) => {
   const mod = `${-tz} minutes`;
   const since = new Date(Date.now() - 372 * 86400_000).toISOString();
 
-  const [heat, focusDay, focusProject, taskXp, totals, focusTotals, journalCount, projectsDone] = await db.batch([
+  const [heat, focusDay, focusProject, taskXp, totals, focusTotals, journalCount, projectsDone, commitCount] = await db.batch([
     db
       .prepare("SELECT date(created_at, ?) AS day, COUNT(*) AS count FROM activity WHERE created_at >= ? GROUP BY day ORDER BY day")
       .bind(mod, since),
@@ -529,6 +522,7 @@ app.get("/stats", async (c) => {
     db.prepare("SELECT COALESCE(SUM(minutes), 0) AS minutes, COUNT(*) AS sessions FROM focus_sessions"),
     db.prepare("SELECT COUNT(*) AS n FROM journal"),
     db.prepare("SELECT COUNT(*) AS n FROM projects WHERE status = 'done'"),
+    db.prepare("SELECT COUNT(*) AS n FROM activity WHERE type = 'commit'"),
   ]);
 
   const heatmap = heat.results as { day: string; count: number }[];
@@ -536,7 +530,8 @@ app.get("/stats", async (c) => {
   const f = focusTotals.results[0] as { minutes: number; sessions: number };
   const journal = (journalCount.results[0] as { n: number }).n;
   const pDone = (projectsDone.results[0] as { n: number }).n;
-  const xp = (taskXp.results[0] as { xp: number }).xp + pDone * 150 + f.minutes + journal * 15;
+  const commits = (commitCount.results[0] as { n: number }).n;
+  const xp = (taskXp.results[0] as { xp: number }).xp + pDone * 150 + f.minutes + journal * 15 + commits * 2;
 
   // Sequência de dias com atividade (hoje ou ontem contam como "ainda vivo").
   const days = new Set(heatmap.filter((h) => h.count > 0).map((h) => h.day));
@@ -573,6 +568,7 @@ app.get("/stats", async (c) => {
       support_done: t.support_done ?? 0,
       early_tasks: t.early_tasks ?? 0,
       night_tasks: t.night_tasks ?? 0,
+      commits,
     },
   };
   return c.json(stats);
@@ -678,102 +674,6 @@ app.post("/import", async (c) => {
 });
 
 // ───────────────────────── GitHub ─────────────────────────
-
-class GithubError extends Error {
-  constructor(
-    message: string,
-    public status: 400 | 401 | 404 | 429 | 502,
-  ) {
-    super(message);
-  }
-}
-
-interface GhOpts {
-  /** ignora o cache (botão "Buscar") */
-  fresh?: boolean;
-  /** recebe os escopos do token clássico (header x-oauth-scopes) */
-  meta?: { scopes: string | null };
-}
-
-/** GET na API do GitHub com cache de alguns minutos (Cache API do Workers). */
-async function gh<T>(env: Env, path: string, ttl = 300, opts: GhOpts = {}): Promise<T> {
-  const token = env.GITHUB_TOKEN?.trim();
-  const cacheKey = new Request(`https://github-cache.afazeres.internal/${token ? "a" : "p"}${path}`);
-  const cache = caches.default;
-  if (!opts.fresh) {
-    const hit = await cache.match(cacheKey);
-    if (hit) {
-      if (opts.meta) opts.meta.scopes = hit.headers.get("x-oauth-scopes");
-      return hit.json<T>();
-    }
-  }
-
-  const base = (env.GITHUB_API_URL || "https://api.github.com").replace(/\/+$/, "");
-  const res = await fetch(`${base}${path}`, {
-    headers: {
-      Accept: "application/vnd.github+json",
-      "User-Agent": "afazeres-worker",
-      "X-GitHub-Api-Version": "2022-11-28",
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-    },
-  });
-  if (!res.ok) {
-    if (res.status === 401) throw new GithubError("Token do GitHub inválido ou expirado (GITHUB_TOKEN).", 401);
-    if ((res.status === 403 || res.status === 429) && res.headers.get("x-ratelimit-remaining") === "0") {
-      throw new GithubError(
-        token
-          ? "Limite da API do GitHub atingido. Tente de novo em alguns minutos."
-          : "Limite da API do GitHub atingido (sem token o limite é bem baixo). Configure o segredo GITHUB_TOKEN.",
-        429,
-      );
-    }
-    if (res.status === 404) throw new GithubError("Não encontrado no GitHub (ou é privado e falta o GITHUB_TOKEN).", 404);
-    throw new GithubError(`GitHub respondeu ${res.status}`, 502);
-  }
-  const body = await res.text();
-  const scopes = res.headers.get("x-oauth-scopes");
-  if (opts.meta) opts.meta.scopes = scopes;
-  const headers: Record<string, string> = { "Content-Type": "application/json", "Cache-Control": `max-age=${ttl}` };
-  if (scopes !== null) headers["x-oauth-scopes"] = scopes;
-  await cache.put(cacheKey, new Response(body, { headers }));
-  return JSON.parse(body) as T;
-}
-
-interface RawRepo {
-  id: number;
-  name: string;
-  full_name: string;
-  description: string | null;
-  html_url: string;
-  homepage: string | null;
-  language: string | null;
-  topics?: string[];
-  private: boolean;
-  archived: boolean;
-  fork: boolean;
-  stargazers_count: number;
-  open_issues_count: number;
-  default_branch: string;
-  created_at: string;
-  pushed_at: string;
-}
-
-const toRepo = (r: RawRepo): GithubRepo => ({
-  id: r.id,
-  name: r.name,
-  full_name: r.full_name,
-  description: r.description ?? "",
-  html_url: r.html_url,
-  homepage: r.homepage ?? "",
-  language: r.language,
-  topics: r.topics ?? [],
-  private: r.private,
-  archived: r.archived,
-  fork: r.fork,
-  stars: r.stargazers_count,
-  created_at: r.created_at,
-  pushed_at: r.pushed_at,
-});
 
 app.get("/github/repos", async (c) => {
   const token = c.env.GITHUB_TOKEN?.trim() ?? "";
@@ -1230,6 +1130,35 @@ app.get("/ingest/summary", async (c) => {
   });
 });
 
+// ───────────────────────── automação ─────────────────────────
+
+app.get("/automation/status", async (c) => c.json(await automationStatus(c.env)));
+
+app.post("/automation/sync", async (c) => c.json(await runSync(c.env, true)));
+
+app.post("/automation/journal", async (c) => {
+  let date: string | null = null;
+  try {
+    const b = (await c.req.json()) as { date?: unknown };
+    if (typeof b.date === "string" && /^\d{4}-\d{2}-\d{2}$/.test(b.date)) date = b.date;
+  } catch {
+    /* sem corpo: hoje */
+  }
+  const entry = await runJournal(c.env, date, true);
+  return c.json({ ok: true, entry });
+});
+
 app.all("*", (c) => c.json({ error: "Rota não encontrada" }, 404));
 
-export default app;
+export default {
+  fetch: app.fetch,
+  // Cron Trigger (wrangler.jsonc → triggers.crons): sincroniza o GitHub e escreve o diário
+  async scheduled(_event, env, ctx) {
+    ctx.waitUntil(
+      (async () => {
+        await ensureSchema(env.DB);
+        await runScheduled(env);
+      })(),
+    );
+  },
+} satisfies ExportedHandler<Env>;

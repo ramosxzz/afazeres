@@ -22,6 +22,7 @@ export const ACHIEVEMENTS: Achievement[] = [
   { id: "first-step", kanji: "一歩", title: "Primeiro passo", desc: "Conclua sua primeira tarefa", progress: ({ stats }) => count(stats.totals.tasks_done, 1) },
   { id: "hundred", kanji: "百", title: "Cem cortes", desc: "Conclua 100 tarefas", progress: ({ stats }) => count(stats.totals.tasks_done, 100) },
   { id: "thousand", kanji: "千", title: "Mil lâminas", desc: "Conclua 1000 tarefas", progress: ({ stats }) => count(stats.totals.tasks_done, 1000) },
+  { id: "commits-100", kanji: "百筆", title: "Cem pinceladas", desc: "Faça 100 commits", progress: ({ stats }) => count(stats.totals.commits ?? 0, 100) },
   { id: "ship-it", kanji: "完", title: "Ship it!", desc: "Finalize um projeto", progress: ({ stats }) => count(stats.totals.projects_done, 1) },
   { id: "five-ships", kanji: "五輪", title: "Cinco anéis", desc: "Finalize 5 projetos", progress: ({ stats }) => count(stats.totals.projects_done, 5) },
   { id: "bug-hunter", kanji: "虫狩", title: "Caçador de bugs", desc: "Corrija 25 bugs", progress: ({ stats }) => count(stats.totals.bugs_fixed, 25) },

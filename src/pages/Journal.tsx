@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Plus, Trash2 } from "lucide-react";
+import { Loader2, Plus, Sparkles, Trash2 } from "lucide-react";
 import { MOODS, type JournalEntry, type Mood } from "@shared/types";
 import { api } from "../api";
 import { useStore } from "../store";
@@ -29,6 +29,30 @@ export function Journal() {
   const timer = useRef<ReturnType<typeof setTimeout>>(undefined);
   const pending = useRef<{ id: string; content: string } | null>(null);
   const today = todayKey();
+  const [summarizing, setSummarizing] = useState(false);
+
+  /** Pede ao servidor o resumo automático do dia selecionado (ou de hoje) e recarrega. */
+  const summarize = async () => {
+    const date = entries?.find((e) => e.id === selected)?.date ?? today;
+    setSummarizing(true);
+    try {
+      await flush();
+      const res = await api<{ entry: { id: string } | null }>("/automation/journal", { method: "POST", body: { date } });
+      const list = await api<JournalEntry[]>("/journal");
+      setEntries(list);
+      const e = list.find((x) => x.id === res.entry?.id);
+      if (e) {
+        setSelected(e.id);
+        setDraft(e.content);
+      }
+      toast("Resumo automático atualizado", "success", { kanji: "記" });
+      void refreshStats();
+    } catch (err) {
+      toast((err as Error).message, "error");
+    } finally {
+      setSummarizing(false);
+    }
+  };
 
   useEffect(() => {
     api<JournalEntry[]>("/journal")
@@ -131,9 +155,20 @@ export function Journal() {
         title="Diário de dev"
         subtitle="O que fez, o que aprendeu, o que travou. Seu eu do futuro agradece."
         actions={
-          <button className="btn btn-primary" onClick={() => void create(today)}>
-            <Plus size={16} /> {entries?.some((e) => e.date === today) ? "Abrir hoje" : "Escrever hoje"}
-          </button>
+          <>
+            <button
+              className="btn btn-ghost"
+              disabled={summarizing}
+              onClick={() => void summarize()}
+              title="Preenche a página com commits, tarefas concluídas e foco do dia"
+            >
+              {summarizing ? <Loader2 size={16} className="spin" /> : <Sparkles size={16} />}
+              <span className="hide-sm">Resumo automático</span>
+            </button>
+            <button className="btn btn-primary" onClick={() => void create(today)}>
+              <Plus size={16} /> {entries?.some((e) => e.date === today) ? "Abrir hoje" : "Escrever hoje"}
+            </button>
+          </>
         }
       />
 
@@ -173,7 +208,7 @@ export function Journal() {
                       <b>{fromKey(e.date).getDate()}</b>
                       <small>{weekdayJp(e.date)}</small>
                     </span>
-                    <span className="ji-preview">{e.content.replace(/[#*>`\-_]/g, "").replace(/\s+/g, " ").trim().slice(0, 70) || "…"}</span>
+                    <span className="ji-preview">{e.content.replace(/<!--[\s\S]*?-->/g, "").replace(/[#*>`\-_]/g, "").replace(/\s+/g, " ").trim().slice(0, 70) || "…"}</span>
                     <span className="ji-mood">{MOOD_META[e.mood].emoji}</span>
                   </button>
                 ))}

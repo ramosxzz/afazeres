@@ -505,8 +505,8 @@
   margin: 1.2em 0 0.5em;
 }
 .markdown h3 {
-  font-size: 15px;
-  color: var(--accent);
+  font-size: 14.5px;
+  color: var(--text);
 }
 .markdown p,
 .markdown ul,

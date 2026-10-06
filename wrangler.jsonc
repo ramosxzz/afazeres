@@ -6,6 +6,10 @@
   "compatibility_flags": ["nodejs_compat"],
   "observability": { "enabled": true },
 
+  // Automação: a cada 30 min sincroniza o GitHub (commits, issues, status)
+  // e, depois das 23h do seu fuso, escreve o resumo do dia no diário.
+  "triggers": { "crons": ["*/30 * * * *"] },
+
   // Front-end (build do Vite) servido como assets estáticos.
   // /api/* cai no Worker; qualquer outra rota volta pro index.html (SPA).
   "assets": {

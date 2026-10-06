@@ -17,6 +17,7 @@ import { DueBadge, Empty, ProgressRing } from "../components/ui";
 
 const ACTIVITY_KANJI: Record<string, string> = {
   task_done: "済",
+  commit: "筆",
   project_created: "新",
   project_done: "完",
   project_status: "移",
